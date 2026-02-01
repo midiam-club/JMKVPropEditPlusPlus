@@ -1,0 +1,17 @@
+/target/
+/bin/
+/build/
+/dist/
+/.settings/
+/.classpath
+/.project
+/*.log
+/*.tmp
+/launch4j/maven/target/
+/launch4j/bin/
+/launch4j/lib/
+/launch4j/build/
+*.iml
+.idea
+*.exe
+*.ini
