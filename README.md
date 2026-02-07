@@ -29,11 +29,6 @@ One of the most significant additions in **JMKVPropEdit++** is the comprehensive
 
 You can run the application easily using the provided launchers:
 
-### Option 1: Double-click (Recommended)
-Double-click **`JMkvpropedit.exe`** or **`run.bat`**.
-
-### Option 2: Command Line
-If you prefer the terminal, you can run:
 ```bash
 java -jar target/jmkvpropedit-1.5.2.jar
 ```
