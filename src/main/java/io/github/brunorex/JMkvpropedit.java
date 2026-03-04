@@ -54,7 +54,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -105,7 +104,7 @@ import org.ini4j.InvalidFileFormatException;
 
 public class JMkvpropedit {
 
-    private static final String VERSION_NUMBER = "v2.1.0";
+    private static final String VERSION_NUMBER = "v2.2.0";
     private static final int MAX_STREAMS = 200;
     private static final Logger LOGGER = Logger.getLogger(JMkvpropedit.class.getName());
     private static String[] argsArray;
@@ -5063,65 +5062,85 @@ public class JMkvpropedit {
         worker = new SwingWorker<Void, Void>() {
             @Override
             public Void doInBackground() {
-                txtOutput.setText("");
-                pnlTabs.setSelectedIndex(pnlTabs.getTabCount() - 1);
-                pnlTabs.setEnabled(false);
-                btnProcessFiles.setEnabled(false);
-                btnGenerateCmdLine.setEnabled(false);
+                javax.swing.SwingUtilities.invokeLater(() -> {
+                    txtOutput.setText("");
+                    pnlTabs.setSelectedIndex(pnlTabs.getTabCount() - 1);
+                    pnlTabs.setEnabled(false);
+                    btnProcessFiles.setEnabled(false);
+                    btnGenerateCmdLine.setEnabled(false);
+                });
+
+                int cores = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
+                java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors
+                        .newFixedThreadPool(cores);
 
                 for (int i = 0; i < cmdLineBatch.size(); i++) {
-                    File optFile = null;
-                    try {
-                        // IMP-06: Use secure temp file instead of CWD (SEC-04 fix)
-                        optFile = File.createTempFile("jmkvpropedit_opts_", ".json");
-                        optFile.deleteOnExit(); // Safety net
+                    final int index = i;
+                    executor.submit(() -> {
+                        java.nio.file.Path optFile = null;
+                        try {
+                            optFile = java.nio.file.Files.createTempFile("jmkvpropedit_opts_", ".json");
+                            java.io.File fileForDelete = optFile.toFile();
+                            fileForDelete.deleteOnExit();
 
-                        String[] optFileContents = Commandline.translateCommandline(cmdLineBatchOpt.get(i));
-                        int optFileMaxLines = optFileContents.length - 1;
+                            String[] optFileContents = Commandline.translateCommandline(cmdLineBatchOpt.get(index));
+                            int optFileMaxLines = optFileContents.length - 1;
 
-                        try (PrintWriter optFilePW = new PrintWriter(optFile, "UTF-8")) {
-                            optFilePW.println("[");
+                            StringBuilder jsonContent = new StringBuilder("[\n");
                             int curLine = 0;
                             for (String content : optFileContents) {
                                 content = Utils.fixEscapedQuotes(content);
-
-                                optFilePW.print("  \"" + content + "\"");
+                                jsonContent.append("  \"").append(content).append("\"");
                                 if (curLine != optFileMaxLines)
-                                    optFilePW.print(",");
-                                optFilePW.println();
+                                    jsonContent.append(",");
+                                jsonContent.append("\n");
                                 curLine++;
                             }
-                            optFilePW.println("]");
+                            jsonContent.append("]\n");
+
+                            java.nio.file.Files.writeString(optFile, jsonContent.toString(),
+                                    java.nio.charset.StandardCharsets.UTF_8);
+
+                            ProcessBuilder pb = new ProcessBuilder(txtMkvPropExe.getText(),
+                                    "@" + optFile.toAbsolutePath().toString());
+                            pb.redirectErrorStream(true);
+
+                            Process process = pb.start();
+                            String processOutput = new String(process.getInputStream().readAllBytes(),
+                                    java.nio.charset.StandardCharsets.UTF_8);
+                            process.waitFor();
+
+                            StringBuilder outputChunk = new StringBuilder();
+                            outputChunk.append("File: ").append(modelFiles.get(index)).append("\n");
+                            outputChunk.append("Command line: ").append(cmdLineBatch.get(index)).append("\n\n");
+                            outputChunk.append(processOutput);
+                            if (index < cmdLineBatch.size() - 1) {
+                                outputChunk.append("\n--------------\n\n");
+                            }
+
+                            javax.swing.SwingUtilities.invokeLater(() -> txtOutput.append(outputChunk.toString()));
+
+                        } catch (java.io.IOException e) {
+                            LOGGER.log(Level.WARNING, "Error executing mkvpropedit for file: " + modelFiles.get(index),
+                                    e);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        } finally {
+                            if (optFile != null) {
+                                try {
+                                    java.nio.file.Files.deleteIfExists(optFile);
+                                } catch (java.io.IOException ignored) {
+                                }
+                            }
                         }
+                    });
+                }
 
-                        ProcessBuilder pb = new ProcessBuilder(txtMkvPropExe.getText(),
-                                "@" + optFile.getAbsolutePath());
-                        pb.redirectErrorStream(true);
-
-                        txtOutput.append("File: " + modelFiles.get(i) + "\n");
-                        txtOutput.append("Command line: " + cmdLineBatch.get(i) + "\n\n");
-
-                        proc = pb.start();
-
-                        StreamGobbler outputGobbler = new StreamGobbler(proc.getInputStream(), txtOutput);
-                        outputGobbler.start();
-
-                        proc.waitFor();
-
-                        if (i < cmdLineBatch.size() - 1) {
-                            txtOutput.append("--------------\n\n");
-                        }
-
-                        Thread.sleep(10);
-                    } catch (IOException e) {
-                        LOGGER.log(Level.WARNING, "Error executing mkvpropedit for file: " + modelFiles.get(i), e);
-                    } catch (InterruptedException e) {
-                        break;
-                    } finally {
-                        if (optFile != null && optFile.exists()) {
-                            optFile.delete();
-                        }
-                    }
+                executor.shutdown();
+                try {
+                    executor.awaitTermination(Long.MAX_VALUE, java.util.concurrent.TimeUnit.NANOSECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
 
                 return null;
