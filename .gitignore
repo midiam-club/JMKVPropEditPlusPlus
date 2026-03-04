@@ -13,3 +13,4 @@
 /launch4j/build/
 *.iml
 .idea
+dependency-reduced-pom.xml

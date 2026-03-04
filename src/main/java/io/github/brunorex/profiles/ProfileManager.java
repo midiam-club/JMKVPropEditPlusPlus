@@ -104,15 +104,11 @@ public class ProfileManager {
     }
 
     public List<TrackProfile> getProfiles(ProfileType type) {
-        switch (type) {
-            case VIDEO:
-                return videoProfiles;
-            case SUBTITLE:
-                return subtitleProfiles;
-            case AUDIO:
-            default:
-                return audioProfiles;
-        }
+        return switch (type) {
+            case VIDEO -> videoProfiles;
+            case SUBTITLE -> subtitleProfiles;
+            default -> audioProfiles;
+        };
     }
 
     public void addProfile(ProfileType type, TrackProfile profile) {
