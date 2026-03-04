@@ -48,7 +48,8 @@ import net.sf.launch4j.binding.Validator;
  */
 public class Config implements IValidatable {
 
-	// 1.x config properties_____________________________________________________________
+	// 1.x config
+	// properties_____________________________________________________________
 	public static final String HEADER = "header";
 	public static final String JAR = "jar";
 	public static final String OUTFILE = "outfile";
@@ -67,17 +68,17 @@ public class Config implements IValidatable {
 	public static final String JNI_CONSOLE_HEADER_32 = "jniConsole32";
 
 	private static final String[] HEADER_TYPES = new String[] { GUI_HEADER,
-																CONSOLE_HEADER,
-																JNI_GUI_HEADER_32,
-																JNI_CONSOLE_HEADER_32 };
+			CONSOLE_HEADER,
+			JNI_GUI_HEADER_32,
+			JNI_CONSOLE_HEADER_32 };
 
 	private static final String[] PRIORITY_CLASS_NAMES = new String[] { "normal",
-																		"idle",
-																		"high" };
+			"idle",
+			"high" };
 
 	private static final int[] PRIORITY_CLASSES = new int[] { 0x00000020,
-															0x00000040,
-															0x00000080 };
+			0x00000040,
+			0x00000080 };
 
 	private boolean dontWrapJar;
 	private String headerType = GUI_HEADER;
@@ -103,7 +104,7 @@ public class Config implements IValidatable {
 	private Jre jre;
 	private Splash splash;
 	private VersionInfo versionInfo;
-	private Msg	messages;
+	private Msg messages;
 
 	public void checkInvariants() {
 		Validator.checkTrue(outfile != null && outfile.getPath().endsWith(".exe"),
@@ -154,9 +155,9 @@ public class Config implements IValidatable {
 		checkJniInvariants();
 		jre.checkInvariants();
 	}
-	
+
 	private void checkJniInvariants() {
-		// TODO: Remove once JNI is fully implemented.
+
 		if (isJniApplication()) {
 			Validator.checkTrue(".".equals(chdir), "chdir",
 					"Only '.' is allowed in change directory.");
@@ -171,11 +172,11 @@ public class Config implements IValidatable {
 			Validator.checkNotNull(classPath, "classpath", "classpath");
 			Validator.checkFalse(jre.getBundledJre64Bit(), "jre.bundledJre64Bit",
 					"64-bit bundled JRE not supported.");
-			Validator.checkTrue(Jre.RUNTIME_BITS_32.equals(jre.getRuntimeBits()), "jre.runtimeBits", 
+			Validator.checkTrue(Jre.RUNTIME_BITS_32.equals(jre.getRuntimeBits()), "jre.runtimeBits",
 					"64-bit JRE not supported.");
 		}
 	}
-	
+
 	public void validate() {
 		checkInvariants();
 		if (classPath != null) {
@@ -215,11 +216,11 @@ public class Config implements IValidatable {
 	public void setErrTitle(String errTitle) {
 		this.errTitle = errTitle;
 	}
-	
+
 	public boolean isGuiApplication() {
 		return GUI_HEADER.equals(headerType) || JNI_GUI_HEADER_32.equals(headerType);
 	}
-	
+
 	public boolean isJniApplication() {
 		return JNI_GUI_HEADER_32.equals(headerType)
 				|| JNI_CONSOLE_HEADER_32.equals(headerType);
@@ -269,14 +270,14 @@ public class Config implements IValidatable {
 		this.libs = libs;
 	}
 
-	/** Wrapper's manifest for User Account Control. */ 
+	/** Wrapper's manifest for User Account Control. */
 	public File getManifest() {
-    	return manifest;
-    }
+		return manifest;
+	}
 
 	public void setManifest(File manifest) {
-    	this.manifest = manifest;
-    }
+		this.manifest = manifest;
+	}
 
 	/** ICO file. */
 	public File getIcon() {
@@ -307,7 +308,7 @@ public class Config implements IValidatable {
 	public ClassPath getClassPath() {
 		return classPath;
 	}
-	
+
 	public void setClassPath(ClassPath classpath) {
 		this.classPath = classpath;
 	}
@@ -347,16 +348,16 @@ public class Config implements IValidatable {
 	public void setStayAlive(boolean stayAlive) {
 		this.stayAlive = stayAlive;
 	}
-	
+
 	/** Restart the application after a crash (i.e. exit code other than 0) */
 	public boolean isRestartOnCrash() {
 		return restartOnCrash;
 	}
-	
+
 	public void setRestartOnCrash(boolean restartOnCrash) {
 		this.restartOnCrash = restartOnCrash;
 	}
-	
+
 	public VersionInfo getVersionInfo() {
 		return versionInfo;
 	}
@@ -377,7 +378,7 @@ public class Config implements IValidatable {
 		int x = Arrays.asList(PRIORITY_CLASS_NAMES).indexOf(getPriority());
 		return x != -1 ? x : 0;
 	}
-	
+
 	public void setPriorityIndex(int x) {
 		priority = PRIORITY_CLASS_NAMES[x];
 	}
@@ -389,11 +390,11 @@ public class Config implements IValidatable {
 	public void setPriority(String priority) {
 		this.priority = priority;
 	}
-	
+
 	public int getPriorityClass() {
 		return PRIORITY_CLASSES[getPriorityIndex()];
 	}
-	
+
 	public String getDownloadUrl() {
 		return downloadUrl == null ? DOWNLOAD_URL : downloadUrl;
 	}
@@ -417,12 +418,12 @@ public class Config implements IValidatable {
 	public void setMessages(Msg messages) {
 		this.messages = messages;
 	}
-	
+
 	public SingleInstance getSingleInstance() {
-    	return singleInstance;
-    }
+		return singleInstance;
+	}
 
 	public void setSingleInstance(SingleInstance singleInstance) {
-    	this.singleInstance = singleInstance;
-    }
+		this.singleInstance = singleInstance;
+	}
 }

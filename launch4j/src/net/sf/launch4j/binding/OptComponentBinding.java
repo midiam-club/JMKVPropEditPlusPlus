@@ -55,7 +55,7 @@ public class OptComponentBinding implements Binding, ActionListener {
 	private final boolean _enabledByDefault;
 
 	public OptComponentBinding(Bindings bindings, String property, Class<? extends IValidatable> clazz,
-								JToggleButton button, boolean enabledByDefault) {
+			JToggleButton button, boolean enabledByDefault) {
 		if (property == null || clazz == null || button == null) {
 			throw new NullPointerException();
 		}
@@ -67,7 +67,7 @@ public class OptComponentBinding implements Binding, ActionListener {
 		if (!Arrays.asList(clazz.getInterfaces()).contains(IValidatable.class)) {
 			throw new IllegalArgumentException(
 					Messages.getString("OptComponentBinding.must.implement")
-					+ IValidatable.class);
+							+ IValidatable.class);
 		}
 
 		_bindings = bindings;
@@ -100,22 +100,27 @@ public class OptComponentBinding implements Binding, ActionListener {
 	public void get(IValidatable bean) {
 		try {
 			PropertyUtils.setProperty(bean, _property, _button.isSelected()
-					? _clazz.newInstance() : null);
+					? _clazz.getDeclaredConstructor().newInstance()
+					: null);
 		} catch (Exception e) {
 			throw new BindingException(e);
 		}
 	}
 
-	public void markValid() {}
+	public void markValid() {
+	}
 
-	public void markInvalid() {}
+	public void markInvalid() {
+	}
 
-	public void setEnabled(boolean enabled) {} // XXX implement?
+	public void setEnabled(boolean enabled) {
+		_button.setEnabled(enabled);
+	}
 
 	public void actionPerformed(ActionEvent e) {
 		updateComponents();
 	}
-	
+
 	private void updateComponents() {
 		_bindings.setComponentsEnabled(_property, _button.isSelected());
 	}

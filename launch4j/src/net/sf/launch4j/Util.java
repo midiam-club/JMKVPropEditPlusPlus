@@ -56,11 +56,12 @@ import java.util.regex.Pattern;
 public class Util {
 	public static final boolean WINDOWS_OS = System.getProperty("os.name")
 			.toLowerCase().startsWith("windows");
-	
+
 	private static final String Launch4jProperties = "launch4j.properties";
 
-	private Util() {}
-	
+	private Util() {
+	}
+
 	public static Properties getProperties() throws IOException {
 		Properties props = new Properties();
 		InputStream in = Main.class.getClassLoader().getResourceAsStream(Launch4jProperties);
@@ -163,7 +164,7 @@ public class Util {
 			throw new ExecException(e);
 		}
 	}
-	
+
 	private static void AppendCommandLine(StringBuffer sb, String[] cmd) {
 		sb.append(": ");
 		for (int i = 0; i < cmd.length; i++) {
@@ -179,7 +180,7 @@ public class Util {
 			try {
 				o.close();
 			} catch (IOException e) {
-				System.err.println(e); // XXX log
+				System.err.println(e);
 			}
 		}
 	}
@@ -189,7 +190,7 @@ public class Util {
 			try {
 				o.close();
 			} catch (IOException e) {
-				System.err.println(e); // XXX log
+				System.err.println(e);
 			}
 		}
 	}
@@ -199,7 +200,7 @@ public class Util {
 			try {
 				o.close();
 			} catch (IOException e) {
-				System.err.println(e); // XXX log
+				System.err.println(e);
 			}
 		}
 	}
@@ -209,7 +210,7 @@ public class Util {
 			try {
 				o.close();
 			} catch (IOException e) {
-				System.err.println(e); // XXX log
+				System.err.println(e);
 			}
 		}
 	}

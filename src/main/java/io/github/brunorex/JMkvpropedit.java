@@ -25,6 +25,12 @@
 
 package io.github.brunorex;
 
+import io.github.brunorex.profiles.ProfileManager;
+import io.github.brunorex.profiles.ProfileManager.ProfileType;
+import io.github.brunorex.profiles.TrackProfile;
+
+import java.util.Locale;
+
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Component;
@@ -75,6 +81,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JProgressBar;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -96,13 +103,14 @@ import org.ini4j.InvalidFileFormatException;
 
 public class JMkvpropedit {
 
-    private static final String VERSION_NUMBER = "1.5.2";
+    private static final String VERSION_NUMBER = "v1.3.0";
     private static final int MAX_STREAMS = 200;
     private static String[] argsArray;
 
     private Process proc = null;
-    private ProcessBuilder pb = new ProcessBuilder();
     private SwingWorker<Void, Void> worker = null;
+    private ProcessBuilder pb = new ProcessBuilder();
+
     private boolean exeFound = true;
 
     private File iniFile = new File("JMkvpropedit.ini");
@@ -110,13 +118,6 @@ public class JMkvpropedit {
 
     private JFileChooser chooser = new JFileChooser(System.getProperty("user.home")) {
         private static final long serialVersionUID = 1L;
-
-        @Override
-        public int showOpenDialog(Component parent) {
-            super.setSelectedFile(new File(""));
-
-            return super.showOpenDialog(parent);
-        }
 
         @Override
         public void approveSelection() {
@@ -135,8 +136,10 @@ public class JMkvpropedit {
     private FileFilter MATROSKA_EXT_FILTER = new FileNameExtensionFilter(
             "Matroska files (*.mkv; *.mka; *.mk3d; *.webm; *.mks)", "mkv", "mka", "mk3d", "webm", "mks");
 
-    private IOFileFilter MATROSKA_FILE_FILTER = new WildcardFileFilter(
-            new String[] { "*.mkv", "*.mka", "*.mk3d", ".webm", ".mks" }, IOCase.INSENSITIVE);
+    private IOFileFilter MATROSKA_FILE_FILTER = WildcardFileFilter.builder()
+            .setWildcards("*.mkv", "*.mka", "*.mk3d", ".webm", ".mks")
+            .setIoCase(IOCase.INSENSITIVE)
+            .get();
 
     private FileFilter TXT_EXT_FILTER = new FileNameExtensionFilter("Plain text files (*.txt)", "txt");
 
@@ -317,6 +320,20 @@ public class JMkvpropedit {
     @SuppressWarnings("unchecked")
     private JComboBox<String>[] cbLangAudio = new JComboBox[MAX_STREAMS];
 
+    private ProfileManager profileManager;
+
+    private JList<TrackProfile> listVideoProfiles;
+    private DefaultListModel<TrackProfile> modelVideoProfiles;
+    private JPanel pnlVideoProfiles;
+
+    private JList<TrackProfile> listAudioProfiles;
+    private DefaultListModel<TrackProfile> modelAudioProfiles;
+    private JPanel pnlAudioProfiles;
+
+    private JList<TrackProfile> listSubtitleProfiles;
+    private DefaultListModel<TrackProfile> modelSubtitleProfiles;
+    private JPanel pnlSubtitleProfiles;
+
     // Subtitle tab controls
     private JComboBox<String> cbSubtitle;
     private AbstractButton btnAddSubtitle;
@@ -426,6 +443,8 @@ public class JMkvpropedit {
     private JPanel pnlOptions;
     private JTextField txtMkvPropExe;
     private JCheckBox chbMkvPropExeDef;
+    private JComboBox<String> cbLanguage;
+    private JButton btnApplyLanguage;
 
     // Output tab controls
     private JTextArea txtOutput;
@@ -460,10 +479,20 @@ public class JMkvpropedit {
      * Initialize the contents of the frame.
      */
     private void initialize() {
+        loadLanguage();
         frmJMkvpropedit = new JFrame();
-        frmJMkvpropedit.setTitle("JMkvpropedit " + VERSION_NUMBER);
+        frmJMkvpropedit.setTitle("JMKVPropedit++ " + VERSION_NUMBER);
         frmJMkvpropedit.setBounds(100, 100, 760, 500);
         frmJMkvpropedit.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+
+        modelAudioProfiles = new DefaultListModel<>();
+        listAudioProfiles = new JList<>(modelAudioProfiles);
+
+        modelVideoProfiles = new DefaultListModel<>();
+        listVideoProfiles = new JList<>(modelVideoProfiles);
+
+        modelSubtitleProfiles = new DefaultListModel<>();
+        listSubtitleProfiles = new JList<>(modelSubtitleProfiles);
 
         chooser.setDialogType(JFileChooser.OPEN_DIALOG);
         chooser.setFileHidingEnabled(true);
@@ -474,7 +503,7 @@ public class JMkvpropedit {
 
         JPanel pnlInput = new JPanel();
         pnlInput.setBorder(new EmptyBorder(10, 10, 10, 0));
-        pnlTabs.addTab("Input", null, pnlInput, null);
+        pnlTabs.addTab(LanguageManager.getString("tab.input"), null, pnlInput, null);
         pnlInput.setLayout(new BorderLayout(0, 0));
 
         JScrollPane spFiles = new JScrollPane();
@@ -588,12 +617,12 @@ public class JMkvpropedit {
         btnClearFiles.setContentAreaFilled(false);
         btnClearFiles.setFocusPainted(false);
         btnClearFiles.setOpaque(false);
-        btnClearFiles.setToolTipText("Clear file list");
+        btnClearFiles.setToolTipText(LanguageManager.getString("input.clear.tooltip"));
         pnlListToolbar.add(btnClearFiles);
 
         JPanel pnlGeneral = new JPanel();
         pnlGeneral.setBorder(new EmptyBorder(10, 10, 10, 10));
-        pnlTabs.addTab("General", null, pnlGeneral, null);
+        pnlTabs.addTab(LanguageManager.getString("tab.general"), null, pnlGeneral, null);
         GridBagLayout gbl_pnlGeneral = new GridBagLayout();
         gbl_pnlGeneral.columnWidths = new int[] { 75, 655, 0 };
         gbl_pnlGeneral.rowHeights = new int[] { 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0 };
@@ -602,7 +631,7 @@ public class JMkvpropedit {
                 Double.MIN_VALUE };
         pnlGeneral.setLayout(gbl_pnlGeneral);
 
-        chbTitleGeneral = new JCheckBox("Title:");
+        chbTitleGeneral = new JCheckBox(LanguageManager.getString("general.title"));
         GridBagConstraints gbc_chbTitleGeneral = new GridBagConstraints();
         gbc_chbTitleGeneral.insets = new Insets(0, 0, 5, 5);
         gbc_chbTitleGeneral.anchor = GridBagConstraints.WEST;
@@ -631,14 +660,14 @@ public class JMkvpropedit {
         gbc_pnlNumbControlsGeneral.gridy = 1;
         pnlGeneral.add(pnlNumbControlsGeneral, gbc_pnlNumbControlsGeneral);
 
-        chbNumbGeneral = new JCheckBox("Numbering:");
+        chbNumbGeneral = new JCheckBox(LanguageManager.getString("general.numbering"));
         chbNumbGeneral.setEnabled(false);
         pnlNumbControlsGeneral.add(chbNumbGeneral);
 
         Component horizontalStrut1 = Box.createHorizontalStrut(10);
         pnlNumbControlsGeneral.add(horizontalStrut1);
 
-        lblNumbStartGeneral = new JLabel("Start");
+        lblNumbStartGeneral = new JLabel(LanguageManager.getString("general.numbering.start"));
         lblNumbStartGeneral.setEnabled(false);
         pnlNumbControlsGeneral.add(lblNumbStartGeneral);
 
@@ -651,7 +680,7 @@ public class JMkvpropedit {
         Component horizontalStrut2 = Box.createHorizontalStrut(5);
         pnlNumbControlsGeneral.add(horizontalStrut2);
 
-        lblNumbPadGeneral = new JLabel("Padding");
+        lblNumbPadGeneral = new JLabel(LanguageManager.getString("general.numbering.padding"));
         lblNumbPadGeneral.setEnabled(false);
         pnlNumbControlsGeneral.add(lblNumbPadGeneral);
 
@@ -662,7 +691,7 @@ public class JMkvpropedit {
         pnlNumbControlsGeneral.add(txtNumbPadGeneral);
 
         lblNumbExplainGeneral = new JLabel(
-                "      To use it, add {num} to the title (e.g. \"My Title {num}\"). Use {file_name} to use the file name as the title.");
+                "      " + LanguageManager.getString("general.numbering.explain"));
         lblNumbExplainGeneral.setEnabled(false);
         GridBagConstraints gbc_lblNumbExplainGeneral = new GridBagConstraints();
         gbc_lblNumbExplainGeneral.insets = new Insets(0, 0, 10, 0);
@@ -671,7 +700,7 @@ public class JMkvpropedit {
         gbc_lblNumbExplainGeneral.gridy = 2;
         pnlGeneral.add(lblNumbExplainGeneral, gbc_lblNumbExplainGeneral);
 
-        chbChapters = new JCheckBox("Chapters:");
+        chbChapters = new JCheckBox(LanguageManager.getString("general.chapters"));
         GridBagConstraints gbc_chbChapters = new GridBagConstraints();
         gbc_chbChapters.anchor = GridBagConstraints.WEST;
         gbc_chbChapters.insets = new Insets(0, 0, 5, 5);
@@ -682,8 +711,10 @@ public class JMkvpropedit {
         cbChapters = new JComboBox<String>();
         cbChapters.setEnabled(false);
         cbChapters.setModel(new DefaultComboBoxModel<String>(
-                new String[] { "Remove", "From file:", "Match file name with suffix:" }));
-        cbChapters.setPrototypeDisplayValue("Match file name with suffix:  ");
+                new String[] { LanguageManager.getString("general.chapters.remove"),
+                        LanguageManager.getString("general.chapters.from.file"),
+                        LanguageManager.getString("general.chapters.match.suffix") }));
+        cbChapters.setPrototypeDisplayValue(LanguageManager.getString("general.chapters.match.suffix") + "  ");
         GridBagConstraints gbc_cbChapters = new GridBagConstraints();
         gbc_cbChapters.insets = new Insets(0, 0, 5, 0);
         gbc_cbChapters.anchor = GridBagConstraints.WEST;
@@ -722,7 +753,7 @@ public class JMkvpropedit {
         pnlChapControlsGeneral.add(txtChapters, gbc_txtChapters);
         txtChapters.setColumns(10);
 
-        btnBrowseChapters = new JButton("Browse...");
+        btnBrowseChapters = new JButton(LanguageManager.getString("general.browse"));
         btnBrowseChapters.setVisible(false);
         GridBagConstraints gbc_btnBrowseChapters = new GridBagConstraints();
         gbc_btnBrowseChapters.insets = new Insets(0, 5, 10, 5);
@@ -740,7 +771,7 @@ public class JMkvpropedit {
         gbc_cbExtChapters.gridy = 0;
         pnlChapControlsGeneral.add(cbExtChapters, gbc_cbExtChapters);
 
-        chbTags = new JCheckBox("Tags:");
+        chbTags = new JCheckBox(LanguageManager.getString("general.tags"));
         GridBagConstraints gbc_chbTags = new GridBagConstraints();
         gbc_chbTags.anchor = GridBagConstraints.WEST;
         gbc_chbTags.insets = new Insets(0, 0, 5, 5);
@@ -751,8 +782,10 @@ public class JMkvpropedit {
         cbTags = new JComboBox<String>();
         cbTags.setEnabled(false);
         cbTags.setModel(new DefaultComboBoxModel<String>(
-                new String[] { "Remove", "From file:", "Match file name with suffix:" }));
-        cbTags.setPrototypeDisplayValue("Match file name with suffix:  ");
+                new String[] { LanguageManager.getString("general.chapters.remove"),
+                        LanguageManager.getString("general.chapters.from.file"),
+                        LanguageManager.getString("general.chapters.match.suffix") }));
+        cbTags.setPrototypeDisplayValue(LanguageManager.getString("general.chapters.match.suffix") + "  ");
         GridBagConstraints gbc_cbTags = new GridBagConstraints();
         gbc_cbTags.insets = new Insets(0, 0, 5, 0);
         gbc_cbTags.anchor = GridBagConstraints.WEST;
@@ -791,7 +824,7 @@ public class JMkvpropedit {
         gbc_txtTags.gridy = 0;
         pnlTagControlsGeneral.add(txtTags, gbc_txtTags);
 
-        btnBrowseTags = new JButton("Browse...");
+        btnBrowseTags = new JButton(LanguageManager.getString("general.browse"));
         btnBrowseTags.setVisible(false);
         GridBagConstraints gbc_btnBrowseTags = new GridBagConstraints();
         gbc_btnBrowseTags.insets = new Insets(0, 5, 10, 5);
@@ -809,7 +842,7 @@ public class JMkvpropedit {
         gbc_cbExtTags.gridy = 0;
         pnlTagControlsGeneral.add(cbExtTags, gbc_cbExtTags);
 
-        chbExtraCmdGeneral = new JCheckBox("Extra parameters:");
+        chbExtraCmdGeneral = new JCheckBox(LanguageManager.getString("track.extra.cmd"));
         GridBagConstraints gbc_chbExtraCmdGeneral = new GridBagConstraints();
         gbc_chbExtraCmdGeneral.anchor = GridBagConstraints.WEST;
         gbc_chbExtraCmdGeneral.insets = new Insets(0, 0, 5, 5);
@@ -829,11 +862,11 @@ public class JMkvpropedit {
 
         JPanel pnlVideo = new JPanel();
         pnlVideo.setBorder(new EmptyBorder(10, 10, 10, 10));
-        pnlTabs.addTab("Video", null, pnlVideo, null);
+        pnlTabs.addTab(LanguageManager.getString("video.tab.title"), null, pnlVideo, null);
         GridBagLayout gbl_pnlVideo = new GridBagLayout();
-        gbl_pnlVideo.columnWidths = new int[] { 705, 0 };
+        gbl_pnlVideo.columnWidths = new int[] { 500, 200, 0 };
         gbl_pnlVideo.rowHeights = new int[] { 30, 283, 0 };
-        gbl_pnlVideo.columnWeights = new double[] { 1.0, Double.MIN_VALUE };
+        gbl_pnlVideo.columnWeights = new double[] { 1.0, 0.0, Double.MIN_VALUE };
         gbl_pnlVideo.rowWeights = new double[] { 0.0, 1.0, Double.MIN_VALUE };
         pnlVideo.setLayout(gbl_pnlVideo);
 
@@ -847,6 +880,7 @@ public class JMkvpropedit {
         pnlControlsVideo.setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));
 
         cbVideo = new JComboBox<String>();
+        cbVideo.setPreferredSize(new Dimension(150, cbVideo.getPreferredSize().height));
         pnlControlsVideo.add(cbVideo);
 
         btnAddVideo = new JButton("");
@@ -866,6 +900,52 @@ public class JMkvpropedit {
         btnRemoveVideo.setContentAreaFilled(false);
         btnRemoveVideo.setFocusPainted(false);
         btnRemoveVideo.setOpaque(false);
+        btnRemoveVideo.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                if (cbVideo.getItemCount() > 0) {
+                    int response = JOptionPane.showConfirmDialog(frmJMkvpropedit,
+                            LanguageManager.getString("delete.track.confirm"),
+                            LanguageManager.getString("delete.track.title"),
+                            JOptionPane.YES_NO_OPTION);
+
+                    if (response != JOptionPane.YES_OPTION) {
+                        return;
+                    }
+
+                    if (cbVideo.getItemCount() == 1) {
+                        // Only one track remains: clear its options and disable editing
+                        chbEditVideo[0].setSelected(false);
+                        chbEnableVideo[0].setSelected(false);
+                        chbDefaultVideo[0].setSelected(false);
+                        chbForcedVideo[0].setSelected(false);
+                        chbNameVideo[0].setSelected(false);
+                        chbNumbVideo[0].setSelected(false);
+                        chbLangVideo[0].setSelected(false);
+                        chbExtraCmdVideo[0].setSelected(false);
+                        txtNameVideo[0].setText("");
+                        txtNumbStartVideo[0].setText("1");
+                        txtNumbPadVideo[0].setText("1");
+                        txtExtraCmdVideo[0].setText("");
+                        rbYesEnableVideo[0].setSelected(true);
+                        rbYesDefVideo[0].setSelected(true);
+                        rbYesForcedVideo[0].setSelected(true);
+                        cbLangVideo[0].setSelectedIndex(mkvStrings.getLangCodeList().indexOf("und"));
+                        toggleVideo(0);
+                    } else {
+                        int idx = cbVideo.getItemCount() - 1;
+                        cbVideo.removeItemAt(idx);
+                        lyrdPnlVideo.remove(idx);
+                        nVideo--;
+
+                        if (cbVideo.getItemCount() < MAX_STREAMS && !btnAddVideo.isEnabled()) {
+                            btnAddVideo.setEnabled(true);
+                        }
+
+                        System.gc();
+                    }
+                }
+            }
+        });
         pnlControlsVideo.add(btnRemoveVideo);
 
         lyrdPnlVideo = new JPanel();
@@ -877,13 +957,42 @@ public class JMkvpropedit {
         lytLyrdPnlVideo = new CardLayout(0, 0);
         lyrdPnlVideo.setLayout(lytLyrdPnlVideo);
 
+        pnlVideoProfiles = createProfilePanel(ProfileType.VIDEO, listVideoProfiles, modelVideoProfiles,
+                () -> cbVideo.getSelectedIndex(),
+                (p, idx) -> {
+                    p.setEnableTrack(rbYesEnableVideo[idx].isSelected());
+                    p.setUseEnableTrack(chbEnableVideo[idx].isSelected());
+
+                    p.setDefaultTrack(rbYesDefVideo[idx].isSelected());
+                    p.setUseDefaultTrack(chbDefaultVideo[idx].isSelected());
+
+                    p.setForcedTrack(rbYesForcedVideo[idx].isSelected());
+                    p.setUseForcedTrack(chbForcedVideo[idx].isSelected());
+
+                    p.setTrackName(txtNameVideo[idx].getText());
+                    p.setUseName(chbNameVideo[idx].isSelected());
+
+                    p.setLanguage((String) cbLangVideo[idx].getSelectedItem());
+                    p.setUseLanguage(chbLangVideo[idx].isSelected());
+                },
+                (p, idx) -> applyVideoProfile(p, idx));
+        GridBagConstraints gbc_pnlVideoProfiles = new GridBagConstraints();
+        gbc_pnlVideoProfiles.gridheight = 2;
+        gbc_pnlVideoProfiles.fill = GridBagConstraints.BOTH;
+        gbc_pnlVideoProfiles.weightx = 0.0;
+        gbc_pnlVideoProfiles.weighty = 1.0;
+        gbc_pnlVideoProfiles.gridx = 1;
+        gbc_pnlVideoProfiles.gridy = 0;
+        gbc_pnlVideoProfiles.insets = new Insets(0, 5, 0, 0);
+        pnlVideo.add(pnlVideoProfiles, gbc_pnlVideoProfiles);
+
         JPanel pnlAudio = new JPanel();
         pnlAudio.setBorder(new EmptyBorder(10, 10, 10, 10));
-        pnlTabs.addTab("Audio", null, pnlAudio, null);
+        pnlTabs.addTab(LanguageManager.getString("audio.tab.title"), null, pnlAudio, null);
         GridBagLayout gbl_pnlAudio = new GridBagLayout();
-        gbl_pnlAudio.columnWidths = new int[] { 705, 0 };
+        gbl_pnlAudio.columnWidths = new int[] { 500, 200, 0 };
         gbl_pnlAudio.rowHeights = new int[] { 30, 283, 0 };
-        gbl_pnlAudio.columnWeights = new double[] { 1.0, Double.MIN_VALUE };
+        gbl_pnlAudio.columnWeights = new double[] { 1.0, 0.0, Double.MIN_VALUE };
         gbl_pnlAudio.rowWeights = new double[] { 0.0, 1.0, Double.MIN_VALUE };
         pnlAudio.setLayout(gbl_pnlAudio);
 
@@ -897,6 +1006,7 @@ public class JMkvpropedit {
         pnlControlsAudio.setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));
 
         cbAudio = new JComboBox<String>();
+        cbAudio.setPreferredSize(new Dimension(150, cbAudio.getPreferredSize().height));
         pnlControlsAudio.add(cbAudio);
 
         btnAddAudio = new JButton("");
@@ -916,6 +1026,52 @@ public class JMkvpropedit {
         btnRemoveAudio.setContentAreaFilled(false);
         btnRemoveAudio.setFocusPainted(false);
         btnRemoveAudio.setOpaque(false);
+        btnRemoveAudio.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                if (cbAudio.getItemCount() > 0) {
+                    int response = JOptionPane.showConfirmDialog(frmJMkvpropedit,
+                            LanguageManager.getString("delete.track.confirm"),
+                            LanguageManager.getString("delete.track.title"),
+                            JOptionPane.YES_NO_OPTION);
+
+                    if (response != JOptionPane.YES_OPTION) {
+                        return;
+                    }
+
+                    if (cbAudio.getItemCount() == 1) {
+                        // Only one track remains: clear its options and disable editing
+                        chbEditAudio[0].setSelected(false);
+                        chbEnableAudio[0].setSelected(false);
+                        chbDefaultAudio[0].setSelected(false);
+                        chbForcedAudio[0].setSelected(false);
+                        chbNameAudio[0].setSelected(false);
+                        chbNumbAudio[0].setSelected(false);
+                        chbLangAudio[0].setSelected(false);
+                        chbExtraCmdAudio[0].setSelected(false);
+                        txtNameAudio[0].setText("");
+                        txtNumbStartAudio[0].setText("1");
+                        txtNumbPadAudio[0].setText("1");
+                        txtExtraCmdAudio[0].setText("");
+                        rbYesEnableAudio[0].setSelected(true);
+                        rbYesDefAudio[0].setSelected(true);
+                        rbYesForcedAudio[0].setSelected(true);
+                        cbLangAudio[0].setSelectedIndex(mkvStrings.getLangCodeList().indexOf("und"));
+                        toggleAudio(0);
+                    } else {
+                        int idx = cbAudio.getItemCount() - 1;
+                        cbAudio.removeItemAt(idx);
+                        lyrdPnlAudio.remove(idx);
+                        nAudio--;
+
+                        if (cbAudio.getItemCount() < MAX_STREAMS && !btnAddAudio.isEnabled()) {
+                            btnAddAudio.setEnabled(true);
+                        }
+
+                        System.gc();
+                    }
+                }
+            }
+        });
         pnlControlsAudio.add(btnRemoveAudio);
 
         lyrdPnlAudio = new JPanel();
@@ -927,13 +1083,42 @@ public class JMkvpropedit {
         lytLyrdPnlAudio = new CardLayout(0, 0);
         lyrdPnlAudio.setLayout(lytLyrdPnlAudio);
 
+        pnlAudioProfiles = createProfilePanel(ProfileType.AUDIO, listAudioProfiles, modelAudioProfiles,
+                () -> cbAudio.getSelectedIndex(),
+                (p, idx) -> {
+                    p.setEnableTrack(rbYesEnableAudio[idx].isSelected());
+                    p.setUseEnableTrack(chbEnableAudio[idx].isSelected());
+
+                    p.setDefaultTrack(rbYesDefAudio[idx].isSelected());
+                    p.setUseDefaultTrack(chbDefaultAudio[idx].isSelected());
+
+                    p.setForcedTrack(rbYesForcedAudio[idx].isSelected());
+                    p.setUseForcedTrack(chbForcedAudio[idx].isSelected());
+
+                    p.setTrackName(txtNameAudio[idx].getText());
+                    p.setUseName(chbNameAudio[idx].isSelected());
+
+                    p.setLanguage((String) cbLangAudio[idx].getSelectedItem());
+                    p.setUseLanguage(chbLangAudio[idx].isSelected());
+                },
+                (p, idx) -> applyAudioProfile(p, idx));
+        GridBagConstraints gbc_pnlAudioProfiles = new GridBagConstraints();
+        gbc_pnlAudioProfiles.gridheight = 2;
+        gbc_pnlAudioProfiles.fill = GridBagConstraints.BOTH;
+        gbc_pnlAudioProfiles.weightx = 0.0;
+        gbc_pnlAudioProfiles.weighty = 1.0;
+        gbc_pnlAudioProfiles.gridx = 1;
+        gbc_pnlAudioProfiles.gridy = 0;
+        gbc_pnlAudioProfiles.insets = new Insets(0, 5, 0, 0);
+        pnlAudio.add(pnlAudioProfiles, gbc_pnlAudioProfiles);
+
         JPanel pnlSubtitle = new JPanel();
         pnlSubtitle.setBorder(new EmptyBorder(10, 10, 10, 10));
-        pnlTabs.addTab("Subtitles", null, pnlSubtitle, null);
+        pnlTabs.addTab(LanguageManager.getString("subtitle.tab.title"), null, pnlSubtitle, null);
         GridBagLayout gbl_pnlSubtitle = new GridBagLayout();
-        gbl_pnlSubtitle.columnWidths = new int[] { 705, 0 };
+        gbl_pnlSubtitle.columnWidths = new int[] { 500, 200, 0 };
         gbl_pnlSubtitle.rowHeights = new int[] { 30, 283, 0 };
-        gbl_pnlSubtitle.columnWeights = new double[] { 1.0, Double.MIN_VALUE };
+        gbl_pnlSubtitle.columnWeights = new double[] { 1.0, 0.0, Double.MIN_VALUE };
         gbl_pnlSubtitle.rowWeights = new double[] { 0.0, 1.0, Double.MIN_VALUE };
         pnlSubtitle.setLayout(gbl_pnlSubtitle);
 
@@ -947,6 +1132,7 @@ public class JMkvpropedit {
         pnlControlsSubtitle.setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));
 
         cbSubtitle = new JComboBox<String>();
+        cbSubtitle.setPreferredSize(new Dimension(150, cbSubtitle.getPreferredSize().height));
         pnlControlsSubtitle.add(cbSubtitle);
 
         btnAddSubtitle = new JButton("");
@@ -966,6 +1152,70 @@ public class JMkvpropedit {
         btnRemoveSubtitle.setContentAreaFilled(false);
         btnRemoveSubtitle.setFocusPainted(false);
         btnRemoveSubtitle.setOpaque(false);
+        btnRemoveSubtitle.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                if (cbSubtitle.getItemCount() > 0) {
+                    int response = JOptionPane.showConfirmDialog(frmJMkvpropedit,
+                            LanguageManager.getString("delete.track.confirm"),
+                            LanguageManager.getString("delete.track.title"),
+                            JOptionPane.YES_NO_OPTION);
+
+                    if (response != JOptionPane.YES_OPTION) {
+                        return;
+                    }
+
+                    if (cbSubtitle.getItemCount() == 1) {
+                        // Only one track remains: clear its options and disable editing
+                        chbEditSubtitle[0].setSelected(false);
+                        chbEnableSubtitle[0].setSelected(false);
+                        chbDefaultSubtitle[0].setSelected(false);
+                        chbForcedSubtitle[0].setSelected(false);
+                        chbNameSubtitle[0].setSelected(false);
+                        chbNumbSubtitle[0].setSelected(false);
+                        chbLangSubtitle[0].setSelected(false);
+                        chbExtraCmdSubtitle[0].setSelected(false);
+                        txtNameSubtitle[0].setText("");
+                        txtNumbStartSubtitle[0].setText("1");
+                        txtNumbPadSubtitle[0].setText("1");
+                        txtExtraCmdSubtitle[0].setText("");
+                        rbYesEnableSubtitle[0].setSelected(true);
+                        rbYesDefSubtitle[0].setSelected(true);
+                        rbYesForcedSubtitle[0].setSelected(true);
+                        cbLangSubtitle[0].setSelectedIndex(mkvStrings.getLangCodeList().indexOf("und"));
+                        // Disable all sub-controls by simulating toggle off
+                        chbEnableSubtitle[0].setEnabled(false);
+                        chbDefaultSubtitle[0].setEnabled(false);
+                        chbForcedSubtitle[0].setEnabled(false);
+                        chbNameSubtitle[0].setEnabled(false);
+                        chbNumbSubtitle[0].setEnabled(false);
+                        chbLangSubtitle[0].setEnabled(false);
+                        chbExtraCmdSubtitle[0].setEnabled(false);
+                        txtNameSubtitle[0].setEnabled(false);
+                        txtNumbStartSubtitle[0].setEnabled(false);
+                        txtNumbPadSubtitle[0].setEnabled(false);
+                        txtExtraCmdSubtitle[0].setEnabled(false);
+                        rbYesEnableSubtitle[0].setEnabled(false);
+                        rbNoEnableSubtitle[0].setEnabled(false);
+                        rbYesDefSubtitle[0].setEnabled(false);
+                        rbNoDefSubtitle[0].setEnabled(false);
+                        rbYesForcedSubtitle[0].setEnabled(false);
+                        rbNoForcedSubtitle[0].setEnabled(false);
+                        cbLangSubtitle[0].setEnabled(false);
+                    } else {
+                        int idx = cbSubtitle.getItemCount() - 1;
+                        cbSubtitle.removeItemAt(idx);
+                        lyrdPnlSubtitle.remove(idx);
+                        nSubtitle--;
+
+                        if (cbSubtitle.getItemCount() < MAX_STREAMS && !btnAddSubtitle.isEnabled()) {
+                            btnAddSubtitle.setEnabled(true);
+                        }
+
+                        System.gc();
+                    }
+                }
+            }
+        });
         pnlControlsSubtitle.add(btnRemoveSubtitle);
 
         lyrdPnlSubtitle = new JPanel();
@@ -977,11 +1227,40 @@ public class JMkvpropedit {
         lytLyrdPnlSubtitle = new CardLayout(0, 0);
         lyrdPnlSubtitle.setLayout(lytLyrdPnlSubtitle);
 
+        pnlSubtitleProfiles = createProfilePanel(ProfileType.SUBTITLE, listSubtitleProfiles, modelSubtitleProfiles,
+                () -> cbSubtitle.getSelectedIndex(),
+                (p, idx) -> {
+                    p.setEnableTrack(rbYesEnableSubtitle[idx].isSelected());
+                    p.setUseEnableTrack(chbEnableSubtitle[idx].isSelected());
+
+                    p.setDefaultTrack(rbYesDefSubtitle[idx].isSelected());
+                    p.setUseDefaultTrack(chbDefaultSubtitle[idx].isSelected());
+
+                    p.setForcedTrack(rbYesForcedSubtitle[idx].isSelected());
+                    p.setUseForcedTrack(chbForcedSubtitle[idx].isSelected());
+
+                    p.setTrackName(txtNameSubtitle[idx].getText());
+                    p.setUseName(chbNameSubtitle[idx].isSelected());
+
+                    p.setLanguage((String) cbLangSubtitle[idx].getSelectedItem());
+                    p.setUseLanguage(chbLangSubtitle[idx].isSelected());
+                },
+                (p, idx) -> applySubtitleProfile(p, idx));
+        GridBagConstraints gbc_pnlSubtitleProfiles = new GridBagConstraints();
+        gbc_pnlSubtitleProfiles.gridheight = 2;
+        gbc_pnlSubtitleProfiles.fill = GridBagConstraints.BOTH;
+        gbc_pnlSubtitleProfiles.weightx = 0.0;
+        gbc_pnlSubtitleProfiles.weighty = 1.0;
+        gbc_pnlSubtitleProfiles.gridx = 1;
+        gbc_pnlSubtitleProfiles.gridy = 0;
+        gbc_pnlSubtitleProfiles.insets = new Insets(0, 5, 0, 0);
+        pnlSubtitle.add(pnlSubtitleProfiles, gbc_pnlSubtitleProfiles);
+
         pnlAttachments = new JTabbedPane(JTabbedPane.TOP);
-        pnlTabs.addTab("Attachments", null, pnlAttachments, null);
+        pnlTabs.addTab(LanguageManager.getString("attachments.tab.title"), null, pnlAttachments, null);
 
         pnlAttachAdd = new JPanel();
-        pnlAttachments.addTab("Add Attachments", null, pnlAttachAdd, null);
+        pnlAttachments.addTab(LanguageManager.getString("attachments.tab.add"), null, pnlAttachAdd, null);
         pnlAttachAdd.setLayout(new BorderLayout(0, 0));
 
         spAttachAdd = new JScrollPane();
@@ -1007,7 +1286,7 @@ public class JMkvpropedit {
         gbl_pnlAttachAddControls.rowWeights = new double[] { 0.0, 0.0, 0.0, 1.0, 1.0, Double.MIN_VALUE };
         pnlAttachAddControls.setLayout(gbl_pnlAttachAddControls);
 
-        lblAttachAddFile = new JLabel("File:");
+        lblAttachAddFile = new JLabel(LanguageManager.getString("attachments.file"));
         GridBagConstraints gbc_lblAttachAddFile = new GridBagConstraints();
         gbc_lblAttachAddFile.anchor = GridBagConstraints.WEST;
         gbc_lblAttachAddFile.insets = new Insets(0, 0, 5, 5);
@@ -1025,14 +1304,14 @@ public class JMkvpropedit {
         pnlAttachAddControls.add(txtAttachAddFile, gbc_txtAttachAddFile);
         txtAttachAddFile.setColumns(10);
 
-        btnBrowseAttachAddFile = new JButton("Browse...");
+        btnBrowseAttachAddFile = new JButton(LanguageManager.getString("button.browse"));
         GridBagConstraints gbc_btnBrowseAttachAddFile = new GridBagConstraints();
         gbc_btnBrowseAttachAddFile.insets = new Insets(0, 0, 5, 0);
         gbc_btnBrowseAttachAddFile.gridx = 2;
         gbc_btnBrowseAttachAddFile.gridy = 0;
         pnlAttachAddControls.add(btnBrowseAttachAddFile, gbc_btnBrowseAttachAddFile);
 
-        lblAttachAddName = new JLabel("Name:");
+        lblAttachAddName = new JLabel(LanguageManager.getString("attachments.name"));
         GridBagConstraints gbc_lblAttachAddName = new GridBagConstraints();
         gbc_lblAttachAddName.anchor = GridBagConstraints.WEST;
         gbc_lblAttachAddName.insets = new Insets(0, 0, 5, 5);
@@ -1049,7 +1328,7 @@ public class JMkvpropedit {
         pnlAttachAddControls.add(txtAttachAddName, gbc_txtAttachAddName);
         txtAttachAddName.setColumns(10);
 
-        lblAttachAddDesc = new JLabel("Description:");
+        lblAttachAddDesc = new JLabel(LanguageManager.getString("attachments.description"));
         GridBagConstraints gbc_lblAttachAddDesc = new GridBagConstraints();
         gbc_lblAttachAddDesc.anchor = GridBagConstraints.EAST;
         gbc_lblAttachAddDesc.insets = new Insets(0, 0, 5, 5);
@@ -1066,7 +1345,7 @@ public class JMkvpropedit {
         pnlAttachAddControls.add(txtAttachAddDesc, gbc_txtAttachAddDesc);
         txtAttachAddDesc.setColumns(10);
 
-        lblAttachAddMime = new JLabel("MIME Type:");
+        lblAttachAddMime = new JLabel(LanguageManager.getString("attachments.mime"));
         GridBagConstraints gbc_lblAttachAddMime = new GridBagConstraints();
         gbc_lblAttachAddMime.anchor = GridBagConstraints.EAST;
         gbc_lblAttachAddMime.insets = new Insets(0, 0, 5, 5);
@@ -1097,14 +1376,14 @@ public class JMkvpropedit {
         gbl_pnlAttachAddControlsBottom.rowWeights = new double[] { 0.0, Double.MIN_VALUE };
         pnlAttachAddControlsBottom.setLayout(gbl_pnlAttachAddControlsBottom);
 
-        btnAttachAddAdd = new JButton("Add");
+        btnAttachAddAdd = new JButton(LanguageManager.getString("button.add"));
         GridBagConstraints gbc_btnAttachAddAdd = new GridBagConstraints();
         gbc_btnAttachAddAdd.insets = new Insets(0, 0, 0, 5);
         gbc_btnAttachAddAdd.gridx = 0;
         gbc_btnAttachAddAdd.gridy = 0;
         pnlAttachAddControlsBottom.add(btnAttachAddAdd, gbc_btnAttachAddAdd);
 
-        btnAttachAddEdit = new JButton("Edit");
+        btnAttachAddEdit = new JButton(LanguageManager.getString("button.edit"));
         btnAttachAddEdit.setEnabled(false);
         GridBagConstraints gbc_btnAttachAddEdit = new GridBagConstraints();
         gbc_btnAttachAddEdit.insets = new Insets(0, 0, 0, 5);
@@ -1112,7 +1391,7 @@ public class JMkvpropedit {
         gbc_btnAttachAddEdit.gridy = 0;
         pnlAttachAddControlsBottom.add(btnAttachAddEdit, gbc_btnAttachAddEdit);
 
-        btnAttachAddRemove = new JButton("Remove");
+        btnAttachAddRemove = new JButton(LanguageManager.getString("button.remove"));
         btnAttachAddRemove.setEnabled(false);
         GridBagConstraints gbc_btnAttachAddRemove = new GridBagConstraints();
         gbc_btnAttachAddRemove.insets = new Insets(0, 0, 0, 5);
@@ -1121,7 +1400,7 @@ public class JMkvpropedit {
         gbc_btnAttachAddRemove.gridy = 0;
         pnlAttachAddControlsBottom.add(btnAttachAddRemove, gbc_btnAttachAddRemove);
 
-        btnAttachAddCancel = new JButton("Cancel");
+        btnAttachAddCancel = new JButton(LanguageManager.getString("button.cancel"));
         btnAttachAddCancel.setEnabled(false);
         GridBagConstraints gbc_btnAttachAddCancel = new GridBagConstraints();
         gbc_btnAttachAddCancel.gridx = 3;
@@ -1129,7 +1408,7 @@ public class JMkvpropedit {
         pnlAttachAddControlsBottom.add(btnAttachAddCancel, gbc_btnAttachAddCancel);
 
         pnlAttachReplace = new JPanel();
-        pnlAttachments.addTab("Replace Attachments", null, pnlAttachReplace, null);
+        pnlAttachments.addTab(LanguageManager.getString("attachments.tab.replace"), null, pnlAttachReplace, null);
         pnlAttachReplace.setLayout(new BorderLayout(0, 0));
 
         spAttachReplace = new JScrollPane();
@@ -1154,7 +1433,7 @@ public class JMkvpropedit {
         gbl_pnlAttachReplaceControls.rowWeights = new double[] { 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, Double.MIN_VALUE };
         pnlAttachReplaceControls.setLayout(gbl_pnlAttachReplaceControls);
 
-        lblAttachReplaceType = new JLabel("Type:");
+        lblAttachReplaceType = new JLabel(LanguageManager.getString("attachments.type"));
         GridBagConstraints gbc_lblAttachReplaceType = new GridBagConstraints();
         gbc_lblAttachReplaceType.anchor = GridBagConstraints.WEST;
         gbc_lblAttachReplaceType.insets = new Insets(0, 0, 5, 5);
@@ -1176,7 +1455,7 @@ public class JMkvpropedit {
         gbl_pnlAttachReplaceType.rowWeights = new double[] { 0.0, Double.MIN_VALUE };
         pnlAttachReplaceType.setLayout(gbl_pnlAttachReplaceType);
 
-        rbAttachReplaceName = new JRadioButton("Attachment name");
+        rbAttachReplaceName = new JRadioButton(LanguageManager.getString("attachments.type.name"));
         rbAttachReplaceName.setSelected(true);
         GridBagConstraints gbc_rbAttachReplaceName = new GridBagConstraints();
         gbc_rbAttachReplaceName.insets = new Insets(0, 0, 0, 5);
@@ -1185,7 +1464,7 @@ public class JMkvpropedit {
         pnlAttachReplaceType.add(rbAttachReplaceName, gbc_rbAttachReplaceName);
         bgAttachReplaceType.add(rbAttachReplaceName);
 
-        rbAttachReplaceID = new JRadioButton("Attachment ID");
+        rbAttachReplaceID = new JRadioButton(LanguageManager.getString("attachments.type.id"));
         GridBagConstraints gbc_rbAttachReplaceID = new GridBagConstraints();
         gbc_rbAttachReplaceID.insets = new Insets(0, 0, 0, 5);
         gbc_rbAttachReplaceID.gridx = 1;
@@ -1193,14 +1472,14 @@ public class JMkvpropedit {
         pnlAttachReplaceType.add(rbAttachReplaceID, gbc_rbAttachReplaceID);
         bgAttachReplaceType.add(rbAttachReplaceID);
 
-        rbAttachReplaceMime = new JRadioButton("Attachment(s) MIME Type");
+        rbAttachReplaceMime = new JRadioButton(LanguageManager.getString("attachments.type.mime"));
         GridBagConstraints gbc_rbAttachReplaceMime = new GridBagConstraints();
         gbc_rbAttachReplaceMime.gridx = 2;
         gbc_rbAttachReplaceMime.gridy = 0;
         pnlAttachReplaceType.add(rbAttachReplaceMime, gbc_rbAttachReplaceMime);
         bgAttachReplaceType.add(rbAttachReplaceMime);
 
-        lblAttachReplaceOrig = new JLabel("Original value:");
+        lblAttachReplaceOrig = new JLabel(LanguageManager.getString("attachments.original.value"));
         GridBagConstraints gbc_lblAttachReplaceOrig = new GridBagConstraints();
         gbc_lblAttachReplaceOrig.insets = new Insets(0, 0, 5, 5);
         gbc_lblAttachReplaceOrig.anchor = GridBagConstraints.WEST;
@@ -1228,7 +1507,7 @@ public class JMkvpropedit {
         cbAttachReplaceOrig.setVisible(false);
         pnlAttachReplaceOrig.add(cbAttachReplaceOrig, "cbAttachReplaceOrig");
 
-        lblAttachReplaceNew = new JLabel("Replacement:");
+        lblAttachReplaceNew = new JLabel(LanguageManager.getString("attachments.replacement"));
         GridBagConstraints gbc_lblAttachReplaceNew = new GridBagConstraints();
         gbc_lblAttachReplaceNew.anchor = GridBagConstraints.WEST;
         gbc_lblAttachReplaceNew.insets = new Insets(0, 0, 5, 5);
@@ -1246,14 +1525,14 @@ public class JMkvpropedit {
         pnlAttachReplaceControls.add(txtAttachReplaceNew, gbc_txtAttachReplaceNew);
         txtAttachReplaceNew.setColumns(10);
 
-        btnAttachReplaceNewBrowse = new JButton("Browse....");
+        btnAttachReplaceNewBrowse = new JButton(LanguageManager.getString("button.browse"));
         GridBagConstraints gbc_btnAttachReplaceNewBrowse = new GridBagConstraints();
         gbc_btnAttachReplaceNewBrowse.insets = new Insets(0, 0, 5, 0);
         gbc_btnAttachReplaceNewBrowse.gridx = 2;
         gbc_btnAttachReplaceNewBrowse.gridy = 2;
         pnlAttachReplaceControls.add(btnAttachReplaceNewBrowse, gbc_btnAttachReplaceNewBrowse);
 
-        lblAttachReplaceName = new JLabel("Name:");
+        lblAttachReplaceName = new JLabel(LanguageManager.getString("attachments.name"));
         GridBagConstraints gbc_lblAttachReplaceName = new GridBagConstraints();
         gbc_lblAttachReplaceName.anchor = GridBagConstraints.WEST;
         gbc_lblAttachReplaceName.insets = new Insets(0, 0, 5, 5);
@@ -1270,7 +1549,7 @@ public class JMkvpropedit {
         gbc_txtAttachReplaceName.gridy = 3;
         pnlAttachReplaceControls.add(txtAttachReplaceName, gbc_txtAttachReplaceName);
 
-        lblAttachReplaceDesc = new JLabel("Description:");
+        lblAttachReplaceDesc = new JLabel(LanguageManager.getString("attachments.description"));
         GridBagConstraints gbc_lblAttachReplaceDesc = new GridBagConstraints();
         gbc_lblAttachReplaceDesc.anchor = GridBagConstraints.WEST;
         gbc_lblAttachReplaceDesc.insets = new Insets(0, 0, 5, 5);
@@ -1287,7 +1566,7 @@ public class JMkvpropedit {
         gbc_txtAttachReplaceDesc.gridy = 4;
         pnlAttachReplaceControls.add(txtAttachReplaceDesc, gbc_txtAttachReplaceDesc);
 
-        lblAttachReplaceMime = new JLabel("MIME Type:");
+        lblAttachReplaceMime = new JLabel(LanguageManager.getString("attachments.mime"));
         GridBagConstraints gbc_lblAttachReplaceMime = new GridBagConstraints();
         gbc_lblAttachReplaceMime.anchor = GridBagConstraints.WEST;
         gbc_lblAttachReplaceMime.insets = new Insets(0, 0, 5, 5);
@@ -1319,14 +1598,14 @@ public class JMkvpropedit {
         gbl_pnlAttachReplaceControlsBottom.rowWeights = new double[] { 0.0, Double.MIN_VALUE };
         pnlAttachReplaceControlsBottom.setLayout(gbl_pnlAttachReplaceControlsBottom);
 
-        btnAttachReplaceAdd = new JButton("Add");
+        btnAttachReplaceAdd = new JButton(LanguageManager.getString("button.add"));
         GridBagConstraints gbc_btnAttachReplaceAdd = new GridBagConstraints();
         gbc_btnAttachReplaceAdd.insets = new Insets(0, 0, 0, 5);
         gbc_btnAttachReplaceAdd.gridx = 0;
         gbc_btnAttachReplaceAdd.gridy = 0;
         pnlAttachReplaceControlsBottom.add(btnAttachReplaceAdd, gbc_btnAttachReplaceAdd);
 
-        btnAttachReplaceEdit = new JButton("Edit");
+        btnAttachReplaceEdit = new JButton(LanguageManager.getString("button.edit"));
         btnAttachReplaceEdit.setEnabled(false);
         GridBagConstraints gbc_btnAttachReplaceEdit = new GridBagConstraints();
         gbc_btnAttachReplaceEdit.insets = new Insets(0, 0, 0, 5);
@@ -1334,7 +1613,7 @@ public class JMkvpropedit {
         gbc_btnAttachReplaceEdit.gridy = 0;
         pnlAttachReplaceControlsBottom.add(btnAttachReplaceEdit, gbc_btnAttachReplaceEdit);
 
-        btnAttachReplaceRemove = new JButton("Remove");
+        btnAttachReplaceRemove = new JButton(LanguageManager.getString("button.remove"));
         btnAttachReplaceRemove.setEnabled(false);
         GridBagConstraints gbc_btnAttachReplaceRemove = new GridBagConstraints();
         gbc_btnAttachReplaceRemove.anchor = GridBagConstraints.SOUTH;
@@ -1343,7 +1622,7 @@ public class JMkvpropedit {
         gbc_btnAttachReplaceRemove.gridy = 0;
         pnlAttachReplaceControlsBottom.add(btnAttachReplaceRemove, gbc_btnAttachReplaceRemove);
 
-        btnAttachReplaceCancel = new JButton("Cancel");
+        btnAttachReplaceCancel = new JButton(LanguageManager.getString("button.cancel"));
         btnAttachReplaceCancel.setEnabled(false);
         GridBagConstraints gbc_btnAttachReplaceCancel = new GridBagConstraints();
         gbc_btnAttachReplaceCancel.gridx = 3;
@@ -1351,7 +1630,7 @@ public class JMkvpropedit {
         pnlAttachReplaceControlsBottom.add(btnAttachReplaceCancel, gbc_btnAttachReplaceCancel);
 
         pnlAttachDelete = new JPanel();
-        pnlAttachments.addTab("Delete Attachments", null, pnlAttachDelete, null);
+        pnlAttachments.addTab(LanguageManager.getString("attachments.tab.delete"), null, pnlAttachDelete, null);
         pnlAttachDelete.setLayout(new BorderLayout(0, 0));
 
         spAttachDelete = new JScrollPane();
@@ -1376,7 +1655,7 @@ public class JMkvpropedit {
         gbl_pnlAttachDeleteControls.rowWeights = new double[] { 1.0, 1.0, 1.0, Double.MIN_VALUE };
         pnlAttachDeleteControls.setLayout(gbl_pnlAttachDeleteControls);
 
-        lblAttachDeleteType = new JLabel("Type:");
+        lblAttachDeleteType = new JLabel(LanguageManager.getString("attachments.type"));
         GridBagConstraints gbc_lblAttachDeleteType = new GridBagConstraints();
         gbc_lblAttachDeleteType.insets = new Insets(0, 0, 5, 5);
         gbc_lblAttachDeleteType.gridx = 0;
@@ -1398,7 +1677,7 @@ public class JMkvpropedit {
         gbl_pnlAttachDeleteType.rowWeights = new double[] { 0.0, Double.MIN_VALUE };
         pnlAttachDeleteType.setLayout(gbl_pnlAttachDeleteType);
 
-        rbAttachDeleteName = new JRadioButton("Attachment name");
+        rbAttachDeleteName = new JRadioButton(LanguageManager.getString("attachments.type.name"));
         rbAttachDeleteName.setSelected(true);
         GridBagConstraints gbc_rbAttachDeleteName = new GridBagConstraints();
         gbc_rbAttachDeleteName.insets = new Insets(0, 0, 0, 5);
@@ -1407,7 +1686,7 @@ public class JMkvpropedit {
         pnlAttachDeleteType.add(rbAttachDeleteName, gbc_rbAttachDeleteName);
         bgAttachDeleteType.add(rbAttachDeleteName);
 
-        rbAttachDeleteID = new JRadioButton("Attachment ID");
+        rbAttachDeleteID = new JRadioButton(LanguageManager.getString("attachments.type.id"));
         GridBagConstraints gbc_rbAttachDeleteID = new GridBagConstraints();
         gbc_rbAttachDeleteID.insets = new Insets(0, 0, 0, 5);
         gbc_rbAttachDeleteID.gridx = 1;
@@ -1415,14 +1694,14 @@ public class JMkvpropedit {
         pnlAttachDeleteType.add(rbAttachDeleteID, gbc_rbAttachDeleteID);
         bgAttachDeleteType.add(rbAttachDeleteID);
 
-        rbAttachDeleteMime = new JRadioButton("Attachment(s) MIME Type");
+        rbAttachDeleteMime = new JRadioButton(LanguageManager.getString("attachments.type.mime"));
         GridBagConstraints gbc_rbAttachDeleteMime = new GridBagConstraints();
         gbc_rbAttachDeleteMime.gridx = 2;
         gbc_rbAttachDeleteMime.gridy = 0;
         pnlAttachDeleteType.add(rbAttachDeleteMime, gbc_rbAttachDeleteMime);
         bgAttachDeleteType.add(rbAttachDeleteMime);
 
-        lblAttachDeleteValue = new JLabel("Value:");
+        lblAttachDeleteValue = new JLabel(LanguageManager.getString("attachments.original.value"));
         GridBagConstraints gbc_lblAttachDeleteValue = new GridBagConstraints();
         gbc_lblAttachDeleteValue.anchor = GridBagConstraints.EAST;
         gbc_lblAttachDeleteValue.insets = new Insets(0, 0, 5, 5);
@@ -1461,14 +1740,14 @@ public class JMkvpropedit {
         gbl_pnlAttachDeleteControlsBottom.rowWeights = new double[] { 0.0, Double.MIN_VALUE };
         pnlAttachDeleteControlsBottom.setLayout(gbl_pnlAttachDeleteControlsBottom);
 
-        btnAttachDeleteAdd = new JButton("Add");
+        btnAttachDeleteAdd = new JButton(LanguageManager.getString("button.add"));
         GridBagConstraints gbc_btnAttachDeleteAdd = new GridBagConstraints();
         gbc_btnAttachDeleteAdd.insets = new Insets(0, 0, 5, 5);
         gbc_btnAttachDeleteAdd.gridx = 0;
         gbc_btnAttachDeleteAdd.gridy = 0;
         pnlAttachDeleteControlsBottom.add(btnAttachDeleteAdd, gbc_btnAttachDeleteAdd);
 
-        btnAttachDeleteEdit = new JButton("Edit");
+        btnAttachDeleteEdit = new JButton(LanguageManager.getString("button.edit"));
         btnAttachDeleteEdit.setEnabled(false);
         GridBagConstraints gbc_btnAttachDeleteEdit = new GridBagConstraints();
         gbc_btnAttachDeleteEdit.insets = new Insets(0, 0, 5, 5);
@@ -1476,7 +1755,7 @@ public class JMkvpropedit {
         gbc_btnAttachDeleteEdit.gridy = 0;
         pnlAttachDeleteControlsBottom.add(btnAttachDeleteEdit, gbc_btnAttachDeleteEdit);
 
-        btnAttachDeleteRemove = new JButton("Remove");
+        btnAttachDeleteRemove = new JButton(LanguageManager.getString("button.remove"));
         btnAttachDeleteRemove.setEnabled(false);
         GridBagConstraints gbc_btnAttachDeleteRemove = new GridBagConstraints();
         gbc_btnAttachDeleteRemove.anchor = GridBagConstraints.SOUTH;
@@ -1485,7 +1764,7 @@ public class JMkvpropedit {
         gbc_btnAttachDeleteRemove.gridy = 0;
         pnlAttachDeleteControlsBottom.add(btnAttachDeleteRemove, gbc_btnAttachDeleteRemove);
 
-        btnAttachDeleteCancel = new JButton("Cancel");
+        btnAttachDeleteCancel = new JButton(LanguageManager.getString("button.cancel"));
         btnAttachDeleteCancel.setEnabled(false);
         GridBagConstraints gbc_btnAttachDeleteCancel = new GridBagConstraints();
         gbc_btnAttachDeleteCancel.insets = new Insets(0, 0, 5, 5);
@@ -1495,15 +1774,15 @@ public class JMkvpropedit {
 
         pnlOptions = new JPanel();
         pnlOptions.setBorder(new EmptyBorder(10, 10, 10, 10));
-        pnlTabs.addTab("Options", null, pnlOptions, null);
+        pnlTabs.addTab(LanguageManager.getString("tab.options"), null, pnlOptions, null);
         GridBagLayout gbl_pnlOptions = new GridBagLayout();
         gbl_pnlOptions.columnWidths = new int[] { 0, 0, 0 };
-        gbl_pnlOptions.rowHeights = new int[] { 0, 0, 0, 0 };
+        gbl_pnlOptions.rowHeights = new int[] { 0, 0, 0, 0, 0 };
         gbl_pnlOptions.columnWeights = new double[] { 0.0, 1.0, Double.MIN_VALUE };
-        gbl_pnlOptions.rowWeights = new double[] { 0.0, 0.0, 1.0, Double.MIN_VALUE };
+        gbl_pnlOptions.rowWeights = new double[] { 0.0, 0.0, 0.0, 1.0, Double.MIN_VALUE };
         pnlOptions.setLayout(gbl_pnlOptions);
 
-        JLabel lblMkvPropExe = new JLabel("Mkvpropedit executable:");
+        JLabel lblMkvPropExe = new JLabel(LanguageManager.getString("options.executable"));
         lblMkvPropExe.setHorizontalAlignment(SwingConstants.CENTER);
         GridBagConstraints gbc_label = new GridBagConstraints();
         gbc_label.anchor = GridBagConstraints.WEST;
@@ -1530,31 +1809,188 @@ public class JMkvpropedit {
         gbc_panel.gridy = 1;
         pnlOptions.add(pnlMkvPropExeControls, gbc_panel);
         GridBagLayout gbl_panel = new GridBagLayout();
-        gbl_panel.columnWidths = new int[] { 0, 0, 0 };
-        gbl_panel.rowHeights = new int[] { 0, 0 };
-        gbl_panel.columnWeights = new double[] { 1.0, 0.0, Double.MIN_VALUE };
-        gbl_panel.rowWeights = new double[] { 0.0, Double.MIN_VALUE };
+        gbl_panel.columnWidths = new int[] { 0, 0, 0, 0 };
+        gbl_panel.rowHeights = new int[] { 0, 0, 0 };
+        gbl_panel.columnWeights = new double[] { 1.0, 0.0, 0.0, Double.MIN_VALUE };
+        gbl_panel.rowWeights = new double[] { 0.0, 0.0, Double.MIN_VALUE };
         pnlMkvPropExeControls.setLayout(gbl_panel);
 
-        chbMkvPropExeDef = new JCheckBox("Use default");
+        chbMkvPropExeDef = new JCheckBox(LanguageManager.getString("options.use.default"));
         chbMkvPropExeDef.setSelected(true);
         chbMkvPropExeDef.setEnabled(false);
         GridBagConstraints gbc_checkBox = new GridBagConstraints();
         gbc_checkBox.anchor = GridBagConstraints.WEST;
-        gbc_checkBox.insets = new Insets(0, 0, 0, 5);
+        gbc_checkBox.insets = new Insets(0, 0, 5, 5);
         gbc_checkBox.gridx = 0;
         gbc_checkBox.gridy = 0;
         pnlMkvPropExeControls.add(chbMkvPropExeDef, gbc_checkBox);
 
-        JButton btnBrowseMkvPropExe = new JButton("Browse...");
+        JButton btnBrowseMkvPropExe = new JButton(LanguageManager.getString("button.browse"));
         GridBagConstraints gbc_button = new GridBagConstraints();
+        gbc_button.insets = new Insets(0, 0, 5, 5);
         gbc_button.gridx = 1;
         gbc_button.gridy = 0;
         pnlMkvPropExeControls.add(btnBrowseMkvPropExe, gbc_button);
 
+        JButton btnDownloadMkvPropExe = new JButton(LanguageManager.getString("options.download"));
+        btnDownloadMkvPropExe.setToolTipText(LanguageManager.getString("options.download.tooltip"));
+        GridBagConstraints gbc_btnDownload = new GridBagConstraints();
+        gbc_btnDownload.insets = new Insets(0, 0, 5, 0);
+        gbc_btnDownload.gridx = 2;
+        gbc_btnDownload.gridy = 0;
+        pnlMkvPropExeControls.add(btnDownloadMkvPropExe, gbc_btnDownload);
+
+        JProgressBar progressDownloadMkv = new JProgressBar();
+        progressDownloadMkv.setStringPainted(true);
+        progressDownloadMkv.setVisible(false);
+        GridBagConstraints gbc_progressDownload = new GridBagConstraints();
+        gbc_progressDownload.fill = GridBagConstraints.HORIZONTAL;
+        gbc_progressDownload.gridwidth = 3;
+        gbc_progressDownload.gridx = 0;
+        gbc_progressDownload.gridy = 1;
+        pnlMkvPropExeControls.add(progressDownloadMkv, gbc_progressDownload);
+
+        // Download button action
+        btnDownloadMkvPropExe.addActionListener(e -> {
+            btnDownloadMkvPropExe.setEnabled(false);
+            progressDownloadMkv.setVisible(true);
+            progressDownloadMkv.setValue(0);
+            progressDownloadMkv.setString(LanguageManager.getString("options.downloading"));
+
+            // Target directory: ./mkvtools/
+            File targetDir = new File(System.getProperty("user.dir"), "mkvtools");
+
+            MkvToolsDownloader downloader = new MkvToolsDownloader(
+                    targetDir,
+                    status -> javax.swing.SwingUtilities.invokeLater(() -> progressDownloadMkv.setString(status)),
+                    progress -> javax.swing.SwingUtilities.invokeLater(() -> progressDownloadMkv.setValue(progress)),
+                    error -> javax.swing.SwingUtilities.invokeLater(() -> {
+                        progressDownloadMkv.setVisible(false);
+                        btnDownloadMkvPropExe.setEnabled(true);
+                        JOptionPane.showMessageDialog(frmJMkvpropedit,
+                                LanguageManager.getString("options.download.error") + ": " + error,
+                                "", JOptionPane.ERROR_MESSAGE);
+                    }),
+                    () -> javax.swing.SwingUtilities.invokeLater(() -> {
+                        progressDownloadMkv.setVisible(false);
+                        btnDownloadMkvPropExe.setEnabled(true);
+
+                        // Update path with relative path
+                        File mkvpropedit = new File(targetDir, "mkvpropedit.exe");
+                        if (mkvpropedit.exists()) {
+                            txtMkvPropExe.setText("mkvtools" + File.separator + "mkvpropedit.exe");
+                            chbMkvPropExeDef.setSelected(false);
+                        }
+
+                        JOptionPane.showMessageDialog(frmJMkvpropedit,
+                                LanguageManager.getString("options.download.complete"),
+                                "", JOptionPane.INFORMATION_MESSAGE);
+                    }));
+
+            downloader.execute();
+        });
+
+        JLabel lblLanguage = new JLabel(LanguageManager.getString("label.language"));
+        GridBagConstraints gbc_lblLanguage = new GridBagConstraints();
+        gbc_lblLanguage.anchor = GridBagConstraints.WEST;
+        gbc_lblLanguage.insets = new Insets(0, 0, 5, 5);
+        gbc_lblLanguage.gridx = 0;
+        gbc_lblLanguage.gridy = 2;
+        pnlOptions.add(lblLanguage, gbc_lblLanguage);
+
+        JPanel pnlLanguageControls = new JPanel();
+        GridBagConstraints gbc_pnlLanguageControls = new GridBagConstraints();
+        gbc_pnlLanguageControls.insets = new Insets(0, 0, 5, 0);
+        gbc_pnlLanguageControls.fill = GridBagConstraints.BOTH;
+        gbc_pnlLanguageControls.gridx = 1;
+        gbc_pnlLanguageControls.gridy = 2;
+        pnlOptions.add(pnlLanguageControls, gbc_pnlLanguageControls);
+        GridBagLayout gbl_pnlLanguageControls = new GridBagLayout();
+        gbl_pnlLanguageControls.columnWidths = new int[] { 0, 0, 0, 0 };
+        gbl_pnlLanguageControls.rowHeights = new int[] { 0, 0 };
+        gbl_pnlLanguageControls.columnWeights = new double[] { 0.0, 0.0, 1.0, Double.MIN_VALUE };
+        gbl_pnlLanguageControls.rowWeights = new double[] { 0.0, Double.MIN_VALUE };
+        pnlLanguageControls.setLayout(gbl_pnlLanguageControls);
+
+        cbLanguage = new JComboBox<String>();
+        cbLanguage.setModel(new DefaultComboBoxModel<String>(new String[] { "English", "Español" }));
+        if (LanguageManager.getLocale().getLanguage().equals("es")) {
+            cbLanguage.setSelectedItem("Español");
+        } else {
+            cbLanguage.setSelectedItem("English");
+        }
+        GridBagConstraints gbc_cbLanguage = new GridBagConstraints();
+        gbc_cbLanguage.insets = new Insets(0, 0, 0, 5);
+        gbc_cbLanguage.fill = GridBagConstraints.HORIZONTAL;
+        gbc_cbLanguage.gridx = 0;
+        gbc_cbLanguage.gridy = 0;
+        pnlLanguageControls.add(cbLanguage, gbc_cbLanguage);
+
+        btnApplyLanguage = new JButton(LanguageManager.getString("button.apply"));
+        btnApplyLanguage.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                String selected = (String) cbLanguage.getSelectedItem();
+                String langCode = "en";
+                if ("Español".equals(selected)) {
+                    langCode = "es";
+                }
+                int[] widths = new int[tblAttachAdd.getColumnCount()];
+                for (int i = 0; i < tblAttachAdd.getColumnCount(); i++) {
+                    widths[i] = tblAttachAdd.getColumnModel().getColumn(i).getPreferredWidth();
+                }
+
+                saveLanguage(langCode);
+
+                // Instant reload
+                frmJMkvpropedit.dispose();
+                // Re-initialize logic
+                nVideo = 0;
+                nAudio = 0;
+                nSubtitle = 0;
+                LanguageManager.setLocale(Locale.forLanguageTag(langCode));
+                initialize();
+                frmJMkvpropedit.setVisible(true);
+
+                if (widths.length == tblAttachAdd.getColumnCount()) {
+                    for (int i = 0; i < tblAttachAdd.getColumnCount(); i++) {
+                        tblAttachAdd.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+                    }
+                }
+                // Restore logic that was in windowOpened
+                readIniFile();
+                // Tracks are added empty by default initialization or read from INI?
+                // WindowOpened calls addVideoTrack, etc. We should replicate that or rely on
+                // windowOpened if it fires.
+                // Since we created a new JFrame and setVisible(true), windowOpened should fire
+                // again?
+                // Actually, windowOpened listener is added in initialize().
+                // So setVisible(true) will trigger it.
+            }
+        });
+        GridBagConstraints gbc_btnApplyLanguage = new GridBagConstraints();
+        gbc_btnApplyLanguage.gridx = 1;
+        gbc_btnApplyLanguage.gridy = 0;
+        gbc_btnApplyLanguage.insets = new Insets(0, 0, 0, 5);
+        pnlLanguageControls.add(btnApplyLanguage, gbc_btnApplyLanguage);
+
+        JPanel pnlLanguageFiller = new JPanel();
+        GridBagConstraints gbc_pnlLanguageFiller = new GridBagConstraints();
+        gbc_pnlLanguageFiller.fill = GridBagConstraints.BOTH;
+        gbc_pnlLanguageFiller.gridx = 2;
+        gbc_pnlLanguageFiller.gridy = 0;
+        pnlLanguageControls.add(pnlLanguageFiller, gbc_pnlLanguageFiller);
+
+        JPanel pnlOptionsFiller = new JPanel();
+        GridBagConstraints gbc_pnlOptionsFiller = new GridBagConstraints();
+        gbc_pnlOptionsFiller.fill = GridBagConstraints.BOTH;
+        gbc_pnlOptionsFiller.gridx = 0;
+        gbc_pnlOptionsFiller.gridy = 3;
+        gbc_pnlOptionsFiller.gridwidth = 2;
+        pnlOptions.add(pnlOptionsFiller, gbc_pnlOptionsFiller);
+
         JPanel pnlOutput = new JPanel();
         pnlOutput.setBorder(new EmptyBorder(10, 10, 10, 10));
-        pnlTabs.addTab("Output", null, pnlOutput, null);
+        pnlTabs.addTab(LanguageManager.getString("tab.output"), null, pnlOutput, null);
         pnlOutput.setLayout(new BorderLayout(0, 0));
 
         JScrollPane spOutput = new JScrollPane();
@@ -1568,10 +2004,10 @@ public class JMkvpropedit {
         JPanel pnlButtons = new JPanel();
         frmJMkvpropedit.getContentPane().add(pnlButtons, BorderLayout.SOUTH);
 
-        btnProcessFiles = new JButton("Process files");
+        btnProcessFiles = new JButton(LanguageManager.getString("button.process"));
         pnlButtons.add(btnProcessFiles);
 
-        btnGenerateCmdLine = new JButton("Generate command line");
+        btnGenerateCmdLine = new JButton(LanguageManager.getString("button.generate.cmd"));
         pnlButtons.add(btnGenerateCmdLine);
 
         /* Start of mouse events for right-click menu */
@@ -1624,7 +2060,9 @@ public class JMkvpropedit {
                 }
 
                 if (wRunning) {
-                    int choice = JOptionPane.showConfirmDialog(frmJMkvpropedit, "Do you really want to exit?", "",
+                    int choice = JOptionPane.showConfirmDialog(frmJMkvpropedit,
+                            LanguageManager.getString("confirm.exit.msg"),
+                            LanguageManager.getString("confirm.exit.title"),
                             JOptionPane.YES_NO_OPTION);
                     if (choice == JOptionPane.YES_OPTION) {
                         worker.cancel(true);
@@ -1670,7 +2108,7 @@ public class JMkvpropedit {
                 File[] files = null;
 
                 chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                chooser.setDialogTitle("Select Matroska file(s) to edit");
+                chooser.setDialogTitle(LanguageManager.getString("chooser.title.file"));
                 chooser.setMultiSelectionEnabled(true);
                 chooser.setAcceptAllFileFilterUsed(false);
                 chooser.resetChoosableFileFilters();
@@ -1698,7 +2136,7 @@ public class JMkvpropedit {
                 File folder = null;
 
                 chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-                chooser.setDialogTitle("Select folder with Matroska files to edit");
+                chooser.setDialogTitle(LanguageManager.getString("chooser.title.folder"));
                 chooser.setAcceptAllFileFilterUsed(false);
 
                 int open = chooser.showOpenDialog(frmJMkvpropedit);
@@ -1736,7 +2174,7 @@ public class JMkvpropedit {
                     int pos = idx[i];
 
                     if (pos > 0) {
-                        String temp = (String) modelFiles.remove(pos);
+                        String temp = modelFiles.remove(pos);
                         modelFiles.add(i, temp);
                         listFiles.ensureIndexIsVisible(0);
                         idx[i] = i;
@@ -1755,7 +2193,7 @@ public class JMkvpropedit {
                     int pos = idx[i];
 
                     if (pos > 0 && listFiles.getMinSelectionIndex() != 0) {
-                        String temp = (String) modelFiles.remove(pos);
+                        String temp = modelFiles.remove(pos);
                         modelFiles.add(pos - 1, temp);
                         listFiles.ensureIndexIsVisible(pos - 1);
                         idx[i]--;
@@ -1775,7 +2213,7 @@ public class JMkvpropedit {
 
                     if (pos < modelFiles.getSize() - 1
                             && listFiles.getMaxSelectionIndex() != modelFiles.getSize() - 1) {
-                        String temp = (String) modelFiles.remove(pos);
+                        String temp = modelFiles.remove(pos);
                         modelFiles.add(pos + 1, temp);
                         listFiles.ensureIndexIsVisible(pos + 1);
                         idx[i]++;
@@ -1795,7 +2233,7 @@ public class JMkvpropedit {
                     int pos = idx[i];
 
                     if (pos < modelFiles.getSize()) {
-                        String temp = (String) modelFiles.remove(pos);
+                        String temp = modelFiles.remove(pos);
                         modelFiles.add(modelFiles.getSize() - j, temp);
                         j++;
                         listFiles.ensureIndexIsVisible(modelFiles.getSize() - 1);
@@ -1916,7 +2354,7 @@ public class JMkvpropedit {
         btnBrowseChapters.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                chooser.setDialogTitle("Select chapters file");
+                chooser.setDialogTitle(LanguageManager.getString("chooser.title.chapters"));
                 chooser.setMultiSelectionEnabled(false);
                 chooser.setAcceptAllFileFilterUsed(false);
                 chooser.resetChoosableFileFilters();
@@ -1986,7 +2424,7 @@ public class JMkvpropedit {
         btnBrowseTags.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                chooser.setDialogTitle("Select tags file");
+                chooser.setDialogTitle(LanguageManager.getString("chooser.title.tags"));
                 chooser.setMultiSelectionEnabled(false);
                 chooser.setAcceptAllFileFilterUsed(false);
                 chooser.resetChoosableFileFilters();
@@ -2021,7 +2459,7 @@ public class JMkvpropedit {
         btnBrowseMkvPropExe.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                chooser.setDialogTitle("Select mkvpropedit executable");
+                chooser.setDialogTitle(LanguageManager.getString("chooser.title.exe"));
                 chooser.setMultiSelectionEnabled(false);
                 chooser.setAcceptAllFileFilterUsed(false);
                 chooser.resetChoosableFileFilters();
@@ -2062,28 +2500,6 @@ public class JMkvpropedit {
 
         });
 
-        btnRemoveVideo.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                if (cbVideo.getSelectedIndex() > 0) {
-                    int idx = cbVideo.getItemCount() - 1;
-
-                    cbVideo.removeItemAt(idx);
-                    lyrdPnlVideo.remove(idx);
-                    nVideo--;
-                }
-
-                if (cbVideo.getItemCount() < MAX_STREAMS && !btnAddVideo.isEnabled()) {
-                    btnAddVideo.setEnabled(true);
-                }
-
-                if (cbVideo.getItemCount() == 1) {
-                    btnRemoveVideo.setEnabled(false);
-                }
-
-                System.gc();
-            }
-        });
-
         cbAudio.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 lytLyrdPnlAudio.show(lyrdPnlAudio, "subPnlAudio[" + cbAudio.getSelectedIndex() + "]");
@@ -2104,28 +2520,6 @@ public class JMkvpropedit {
                 }
             }
 
-        });
-
-        btnRemoveAudio.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                if (cbAudio.getSelectedIndex() > 0) {
-                    int idx = cbAudio.getItemCount() - 1;
-
-                    cbAudio.removeItemAt(idx);
-                    lyrdPnlAudio.remove(idx);
-                    nAudio--;
-                }
-
-                if (cbAudio.getItemCount() < MAX_STREAMS && !btnAddAudio.isEnabled()) {
-                    btnAddAudio.setEnabled(true);
-                }
-
-                if (cbAudio.getItemCount() == 1) {
-                    btnRemoveAudio.setEnabled(false);
-                }
-
-                System.gc();
-            }
         });
 
         cbSubtitle.addActionListener(new ActionListener() {
@@ -2150,28 +2544,6 @@ public class JMkvpropedit {
 
         });
 
-        btnRemoveSubtitle.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                if (cbSubtitle.getSelectedIndex() > 0) {
-                    int idx = cbSubtitle.getItemCount() - 1;
-
-                    cbSubtitle.removeItemAt(idx);
-                    lyrdPnlSubtitle.remove(idx);
-                    nSubtitle--;
-                }
-
-                if (cbSubtitle.getItemCount() < MAX_STREAMS && !btnAddSubtitle.isEnabled()) {
-                    btnAddSubtitle.setEnabled(true);
-                }
-
-                if (cbSubtitle.getItemCount() == 1) {
-                    btnRemoveSubtitle.setEnabled(false);
-                }
-
-                System.gc();
-            }
-        });
-
         new FileDrop(txtAttachAddFile, new FileDrop.Listener() {
             public void filesDropped(File[] files) {
                 try {
@@ -2186,7 +2558,7 @@ public class JMkvpropedit {
         btnBrowseAttachAddFile.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                chooser.setDialogTitle("Select attachment");
+                chooser.setDialogTitle(LanguageManager.getString("chooser.title.attachment"));
                 chooser.setMultiSelectionEnabled(false);
                 chooser.resetChoosableFileFilters();
                 chooser.setAcceptAllFileFilterUsed(true);
@@ -2239,7 +2611,7 @@ public class JMkvpropedit {
         btnAttachAddAdd.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 if (txtAttachAddFile.getText().trim().isEmpty()) {
-                    JOptionPane.showMessageDialog(null, "The file is mandatory for the attachment!", "",
+                    JOptionPane.showMessageDialog(null, LanguageManager.getString("error.attachment.file"), "",
                             JOptionPane.ERROR_MESSAGE);
 
                     return;
@@ -2263,7 +2635,7 @@ public class JMkvpropedit {
         btnAttachAddEdit.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 if (txtAttachAddFile.getText().trim().isEmpty()) {
-                    JOptionPane.showMessageDialog(null, "The file is mandatory for the attachment!", "",
+                    JOptionPane.showMessageDialog(null, LanguageManager.getString("error.attachment.file"), "",
                             JOptionPane.ERROR_MESSAGE);
 
                     return;
@@ -2390,7 +2762,7 @@ public class JMkvpropedit {
         btnAttachReplaceNewBrowse.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                chooser.setDialogTitle("Select attachment");
+                chooser.setDialogTitle(LanguageManager.getString("chooser.title.attachment"));
                 chooser.setMultiSelectionEnabled(false);
                 chooser.resetChoosableFileFilters();
                 chooser.setAcceptAllFileFilterUsed(true);
@@ -2478,7 +2850,7 @@ public class JMkvpropedit {
 
                 if (orig.isEmpty() || txtAttachReplaceNew.getText().isEmpty()) {
                     JOptionPane.showMessageDialog(null,
-                            "The original value and replacement are mandatory for the attachment!", "",
+                            LanguageManager.getString("error.attachment.replace"), "",
                             JOptionPane.ERROR_MESSAGE);
 
                     return;
@@ -2523,7 +2895,7 @@ public class JMkvpropedit {
 
                 if (orig.isEmpty() || txtAttachReplaceNew.getText().isEmpty()) {
                     JOptionPane.showMessageDialog(null,
-                            "The original value and replacement are mandatory for the attachment!", "",
+                            LanguageManager.getString("error.attachment.replace"), "",
                             JOptionPane.ERROR_MESSAGE);
 
                     return;
@@ -2700,7 +3072,7 @@ public class JMkvpropedit {
                 }
 
                 if (value.isEmpty()) {
-                    JOptionPane.showMessageDialog(null, "The value is mandatory for the attachment!", "",
+                    JOptionPane.showMessageDialog(null, LanguageManager.getString("error.attachment.value"), "",
                             JOptionPane.ERROR_MESSAGE);
 
                     return;
@@ -2740,7 +3112,7 @@ public class JMkvpropedit {
                 int selection = tblAttachDelete.getSelectedRow();
 
                 if (value.isEmpty()) {
-                    JOptionPane.showMessageDialog(null, "The value is mandatory for the attachment!", "",
+                    JOptionPane.showMessageDialog(null, LanguageManager.getString("error.attachment.value"), "",
                             JOptionPane.ERROR_MESSAGE);
 
                     return;
@@ -2806,21 +3178,22 @@ public class JMkvpropedit {
         btnProcessFiles.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 if (modelFiles.getSize() == 0) {
-                    JOptionPane.showMessageDialog(frmJMkvpropedit, "The file list is empty!", "Empty list",
+                    JOptionPane.showMessageDialog(frmJMkvpropedit, LanguageManager.getString("error.list.empty"),
+                            LanguageManager.getString("error.title.empty"),
                             JOptionPane.ERROR_MESSAGE);
                 } else {
                     setCmdLine();
 
                     if (cmdLineBatchOpt.size() == 0) {
-                        JOptionPane.showMessageDialog(frmJMkvpropedit, "Nothing to do!", "",
+                        JOptionPane.showMessageDialog(frmJMkvpropedit, LanguageManager.getString("error.nothing.to.do"),
+                                "",
                                 JOptionPane.INFORMATION_MESSAGE);
                     } else {
                         if (isExecutableInPath(txtMkvPropExe.getText())) {
                             executeBatch();
                         } else {
-                            JOptionPane.showMessageDialog(frmJMkvpropedit, "Mkvpropedit executable not found!"
-                                    + "\nPlease make sure it is installed and included in the system path.\n"
-                                    + "Alternatively, you can manually set the path or copy its executable to the working folder.",
+                            JOptionPane.showMessageDialog(frmJMkvpropedit,
+                                    LanguageManager.getString("error.executable.cmd.not.found"),
                                     "", JOptionPane.ERROR_MESSAGE);
                         }
                     }
@@ -2832,13 +3205,15 @@ public class JMkvpropedit {
         btnGenerateCmdLine.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 if (modelFiles.getSize() == 0) {
-                    JOptionPane.showMessageDialog(frmJMkvpropedit, "The file list is empty!", "Empty list",
+                    JOptionPane.showMessageDialog(frmJMkvpropedit, LanguageManager.getString("error.list.empty"),
+                            LanguageManager.getString("error.title.empty"),
                             JOptionPane.ERROR_MESSAGE);
                 } else {
                     setCmdLine();
 
                     if (cmdLineBatch.size() == 0) {
-                        JOptionPane.showMessageDialog(frmJMkvpropedit, "Nothing to do!", "",
+                        JOptionPane.showMessageDialog(frmJMkvpropedit, LanguageManager.getString("error.nothing.to.do"),
+                                "",
                                 JOptionPane.INFORMATION_MESSAGE);
                     } else {
                         txtOutput.setText("");
@@ -2863,21 +3238,21 @@ public class JMkvpropedit {
             subPnlVideo[nVideo] = new JPanel();
             lyrdPnlVideo.add(subPnlVideo[nVideo], "subPnlVideo[" + nVideo + "]");
             GridBagLayout gbl_subPnlVideo = new GridBagLayout();
-            gbl_subPnlVideo.columnWidths = new int[] { 0, 0, 0 };
+            gbl_subPnlVideo.columnWidths = new int[] { 140, 0, 0 };
             gbl_subPnlVideo.rowHeights = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             gbl_subPnlVideo.columnWeights = new double[] { 0.0, 1.0, Double.MIN_VALUE };
             gbl_subPnlVideo.rowWeights = new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE };
             subPnlVideo[nVideo].setLayout(gbl_subPnlVideo);
 
-            chbEditVideo[nVideo] = new JCheckBox("Edit this track:");
+            chbEditVideo[nVideo] = new JCheckBox(LanguageManager.getString("track.edit"));
             GridBagConstraints gbc_chbEditVideo = new GridBagConstraints();
             gbc_chbEditVideo.insets = new Insets(0, 0, 10, 5);
             gbc_chbEditVideo.anchor = GridBagConstraints.WEST;
             gbc_chbEditVideo.gridx = 0;
             gbc_chbEditVideo.gridy = 0;
             subPnlVideo[nVideo].add(chbEditVideo[nVideo], gbc_chbEditVideo);
-            
-            chbEnableVideo[nVideo] = new JCheckBox("Enable track:");
+
+            chbEnableVideo[nVideo] = new JCheckBox(LanguageManager.getString("track.enable"));
             chbEnableVideo[nVideo].setEnabled(false);
             GridBagConstraints gbc_chbEnableVideo = new GridBagConstraints();
             gbc_chbEnableVideo.insets = new Insets(0, 0, 5, 5);
@@ -2885,7 +3260,7 @@ public class JMkvpropedit {
             gbc_chbEnableVideo.gridx = 0;
             gbc_chbEnableVideo.gridy = 1;
             subPnlVideo[nVideo].add(chbEnableVideo[nVideo], gbc_chbEnableVideo);
-            
+
             JPanel pnlEnableControlsVideo = new JPanel();
             FlowLayout fl_pnlEnableControlsVideo = (FlowLayout) pnlEnableControlsVideo.getLayout();
             fl_pnlEnableControlsVideo.setAlignment(FlowLayout.LEFT);
@@ -2897,12 +3272,12 @@ public class JMkvpropedit {
             gbc_pnlEnableControlsVideo.gridy = 1;
             subPnlVideo[nVideo].add(pnlEnableControlsVideo, gbc_pnlEnableControlsVideo);
 
-            rbYesEnableVideo[nVideo] = new JRadioButton("Yes");
+            rbYesEnableVideo[nVideo] = new JRadioButton(LanguageManager.getString("common.yes"));
             rbYesEnableVideo[nVideo].setEnabled(false);
             rbYesEnableVideo[nVideo].setSelected(true);
             pnlEnableControlsVideo.add(rbYesEnableVideo[nVideo]);
 
-            rbNoEnableVideo[nVideo] = new JRadioButton("No");
+            rbNoEnableVideo[nVideo] = new JRadioButton(LanguageManager.getString("common.no"));
             rbNoEnableVideo[nVideo].setEnabled(false);
             pnlEnableControlsVideo.add(rbNoEnableVideo[nVideo]);
 
@@ -2910,7 +3285,7 @@ public class JMkvpropedit {
             bgRbEnableVideo[nVideo].add(rbYesEnableVideo[nVideo]);
             bgRbEnableVideo[nVideo].add(rbNoEnableVideo[nVideo]);
 
-            chbDefaultVideo[nVideo] = new JCheckBox("Default track:");
+            chbDefaultVideo[nVideo] = new JCheckBox(LanguageManager.getString("track.default"));
             chbDefaultVideo[nVideo].setEnabled(false);
             GridBagConstraints gbc_chbDefaultVideo = new GridBagConstraints();
             gbc_chbDefaultVideo.insets = new Insets(0, 0, 5, 5);
@@ -2930,12 +3305,12 @@ public class JMkvpropedit {
             gbc_pnlDefControlsVideo.gridy = 2;
             subPnlVideo[nVideo].add(pnlDefControlsVideo, gbc_pnlDefControlsVideo);
 
-            rbYesDefVideo[nVideo] = new JRadioButton("Yes");
+            rbYesDefVideo[nVideo] = new JRadioButton(LanguageManager.getString("common.yes"));
             rbYesDefVideo[nVideo].setEnabled(false);
             rbYesDefVideo[nVideo].setSelected(true);
             pnlDefControlsVideo.add(rbYesDefVideo[nVideo]);
 
-            rbNoDefVideo[nVideo] = new JRadioButton("No");
+            rbNoDefVideo[nVideo] = new JRadioButton(LanguageManager.getString("common.no"));
             rbNoDefVideo[nVideo].setEnabled(false);
             pnlDefControlsVideo.add(rbNoDefVideo[nVideo]);
 
@@ -2943,7 +3318,7 @@ public class JMkvpropedit {
             bgRbDefVideo[nVideo].add(rbYesDefVideo[nVideo]);
             bgRbDefVideo[nVideo].add(rbNoDefVideo[nVideo]);
 
-            chbForcedVideo[nVideo] = new JCheckBox("Forced track:");
+            chbForcedVideo[nVideo] = new JCheckBox(LanguageManager.getString("track.forced"));
             chbForcedVideo[nVideo].setEnabled(false);
             GridBagConstraints gbc_chbForcedVideo = new GridBagConstraints();
             gbc_chbForcedVideo.insets = new Insets(0, 0, 5, 5);
@@ -2963,12 +3338,12 @@ public class JMkvpropedit {
             gbc_pnlForControlsVideo.gridy = 3;
             subPnlVideo[nVideo].add(pnlForControlsVideo, gbc_pnlForControlsVideo);
 
-            rbYesForcedVideo[nVideo] = new JRadioButton("Yes");
+            rbYesForcedVideo[nVideo] = new JRadioButton(LanguageManager.getString("common.yes"));
             rbYesForcedVideo[nVideo].setEnabled(false);
             rbYesForcedVideo[nVideo].setSelected(true);
             pnlForControlsVideo.add(rbYesForcedVideo[nVideo]);
 
-            rbNoForcedVideo[nVideo] = new JRadioButton("No");
+            rbNoForcedVideo[nVideo] = new JRadioButton(LanguageManager.getString("common.no"));
             rbNoForcedVideo[nVideo].setEnabled(false);
             pnlForControlsVideo.add(rbNoForcedVideo[nVideo]);
 
@@ -2976,7 +3351,7 @@ public class JMkvpropedit {
             bgRbForcedVideo[nVideo].add(rbYesForcedVideo[nVideo]);
             bgRbForcedVideo[nVideo].add(rbNoForcedVideo[nVideo]);
 
-            chbNameVideo[nVideo] = new JCheckBox("Track name:");
+            chbNameVideo[nVideo] = new JCheckBox(LanguageManager.getString("track.name"));
             chbNameVideo[nVideo].setEnabled(false);
             GridBagConstraints gbc_chbNameVideo = new GridBagConstraints();
             gbc_chbNameVideo.insets = new Insets(0, 0, 5, 5);
@@ -2987,13 +3362,22 @@ public class JMkvpropedit {
 
             txtNameVideo[nVideo] = new JTextField();
             txtNameVideo[nVideo].setEnabled(false);
+            txtNameVideo[nVideo].setColumns(10);
             GridBagConstraints gbc_txtNameVideo = new GridBagConstraints();
             gbc_txtNameVideo.insets = new Insets(0, 0, 5, 0);
             gbc_txtNameVideo.fill = GridBagConstraints.HORIZONTAL;
             gbc_txtNameVideo.gridx = 1;
             gbc_txtNameVideo.gridy = 4;
             subPnlVideo[nVideo].add(txtNameVideo[nVideo], gbc_txtNameVideo);
-            txtNameVideo[nVideo].setColumns(10);
+
+            chbNumbVideo[nVideo] = new JCheckBox(LanguageManager.getString("track.numbering"));
+            chbNumbVideo[nVideo].setEnabled(false);
+            GridBagConstraints gbc_chbNumbVideo = new GridBagConstraints();
+            gbc_chbNumbVideo.insets = new Insets(0, 0, 5, 5);
+            gbc_chbNumbVideo.anchor = GridBagConstraints.WEST;
+            gbc_chbNumbVideo.gridx = 0;
+            gbc_chbNumbVideo.gridy = 5;
+            subPnlVideo[nVideo].add(chbNumbVideo[nVideo], gbc_chbNumbVideo);
 
             JPanel pnlNumbControlsVideo = new JPanel();
             FlowLayout fl_pnlNumbControlsVideo = (FlowLayout) pnlNumbControlsVideo.getLayout();
@@ -3001,74 +3385,66 @@ public class JMkvpropedit {
             fl_pnlNumbControlsVideo.setVgap(0);
             GridBagConstraints gbc_pnlNumbControlsVideo = new GridBagConstraints();
             gbc_pnlNumbControlsVideo.insets = new Insets(0, 0, 5, 0);
-            gbc_pnlNumbControlsVideo.fill = GridBagConstraints.BOTH;
+            gbc_pnlNumbControlsVideo.fill = GridBagConstraints.HORIZONTAL;
             gbc_pnlNumbControlsVideo.gridx = 1;
             gbc_pnlNumbControlsVideo.gridy = 5;
             subPnlVideo[nVideo].add(pnlNumbControlsVideo, gbc_pnlNumbControlsVideo);
 
-            chbNumbVideo[nVideo] = new JCheckBox("Numbering:");
-            chbNumbVideo[nVideo].setEnabled(false);
-            pnlNumbControlsVideo.add(chbNumbVideo[nVideo]);
-
-            Component horizontalStrut1 = Box.createHorizontalStrut(10);
-            pnlNumbControlsVideo.add(horizontalStrut1);
-
-            lblNumbStartVideo[nVideo] = new JLabel("Start");
+            lblNumbStartVideo[nVideo] = new JLabel(LanguageManager.getString("track.numbering.start"));
             lblNumbStartVideo[nVideo].setEnabled(false);
             pnlNumbControlsVideo.add(lblNumbStartVideo[nVideo]);
 
             txtNumbStartVideo[nVideo] = new JTextField();
             txtNumbStartVideo[nVideo].setText("1");
             txtNumbStartVideo[nVideo].setEnabled(false);
-            txtNumbStartVideo[nVideo].setColumns(10);
+            txtNumbStartVideo[nVideo].setColumns(3);
             pnlNumbControlsVideo.add(txtNumbStartVideo[nVideo]);
 
-            Component horizontalStrut2 = Box.createHorizontalStrut(5);
-            pnlNumbControlsVideo.add(horizontalStrut2);
-
-            lblNumbPadVideo[nVideo] = new JLabel("Padding");
+            lblNumbPadVideo[nVideo] = new JLabel(LanguageManager.getString("track.numbering.padding"));
             lblNumbPadVideo[nVideo].setEnabled(false);
             pnlNumbControlsVideo.add(lblNumbPadVideo[nVideo]);
 
             txtNumbPadVideo[nVideo] = new JTextField();
             txtNumbPadVideo[nVideo].setText("1");
             txtNumbPadVideo[nVideo].setEnabled(false);
-            txtNumbPadVideo[nVideo].setColumns(10);
+            txtNumbPadVideo[nVideo].setColumns(3);
             pnlNumbControlsVideo.add(txtNumbPadVideo[nVideo]);
 
             lblNumbExplainVideo[nVideo] = new JLabel(
-                    "      To use it, add {num} to the name (e.g. \"My Video {num}\"). Use {file_name} to use the file name as the name.");
+                    "<html>" + LanguageManager.getString("track.numbering.explain") + "</html>");
             lblNumbExplainVideo[nVideo].setEnabled(false);
             GridBagConstraints gbc_lblNumbExplainVideo = new GridBagConstraints();
-            gbc_lblNumbExplainVideo.insets = new Insets(0, 0, 10, 0);
-            gbc_lblNumbExplainVideo.anchor = GridBagConstraints.WEST;
+            gbc_lblNumbExplainVideo.insets = new Insets(0, 0, 5, 0);
+            gbc_lblNumbExplainVideo.fill = GridBagConstraints.HORIZONTAL;
             gbc_lblNumbExplainVideo.gridx = 1;
             gbc_lblNumbExplainVideo.gridy = 6;
             subPnlVideo[nVideo].add(lblNumbExplainVideo[nVideo], gbc_lblNumbExplainVideo);
 
-            chbLangVideo[nVideo] = new JCheckBox("Language:");
+            chbLangVideo[nVideo] = new JCheckBox(LanguageManager.getString("track.language"));
             chbLangVideo[nVideo].setEnabled(false);
             GridBagConstraints gbc_chbLangVideo = new GridBagConstraints();
+            gbc_chbLangVideo.insets = new Insets(0, 0, 5, 5);
             gbc_chbLangVideo.anchor = GridBagConstraints.WEST;
-            gbc_chbLangVideo.insets = new Insets(0, 0, 10, 5);
             gbc_chbLangVideo.gridx = 0;
             gbc_chbLangVideo.gridy = 7;
             subPnlVideo[nVideo].add(chbLangVideo[nVideo], gbc_chbLangVideo);
 
             cbLangVideo[nVideo] = new JComboBox<String>();
-            cbLangVideo[nVideo].setEnabled(false);
-            cbLangVideo[nVideo].setModel(new DefaultComboBoxModel<String>(mkvStrings.getLangNames()));
+            cbLangVideo[nVideo]
+                    .setModel(new DefaultComboBoxModel<String>(mkvStrings.getLangNameList().toArray(new String[0])));
             cbLangVideo[nVideo].setSelectedIndex(mkvStrings.getLangCodeList().indexOf("und"));
+            cbLangVideo[nVideo].setEnabled(false);
             GridBagConstraints gbc_cbLangVideo = new GridBagConstraints();
-            gbc_cbLangVideo.insets = new Insets(0, 0, 10, 0);
-            gbc_cbLangVideo.anchor = GridBagConstraints.WEST;
+            gbc_cbLangVideo.insets = new Insets(0, 0, 5, 0);
+            gbc_cbLangVideo.fill = GridBagConstraints.HORIZONTAL;
             gbc_cbLangVideo.gridx = 1;
             gbc_cbLangVideo.gridy = 7;
             subPnlVideo[nVideo].add(cbLangVideo[nVideo], gbc_cbLangVideo);
 
-            chbExtraCmdVideo[nVideo] = new JCheckBox("Extra parameters:");
+            chbExtraCmdVideo[nVideo] = new JCheckBox(LanguageManager.getString("track.extra.cmd"));
             chbExtraCmdVideo[nVideo].setEnabled(false);
             GridBagConstraints gbc_chbExtraCmdVideo = new GridBagConstraints();
+            gbc_chbExtraCmdVideo.insets = new Insets(0, 0, 0, 5);
             gbc_chbExtraCmdVideo.anchor = GridBagConstraints.WEST;
             gbc_chbExtraCmdVideo.gridx = 0;
             gbc_chbExtraCmdVideo.gridy = 8;
@@ -3076,70 +3452,16 @@ public class JMkvpropedit {
 
             txtExtraCmdVideo[nVideo] = new JTextField();
             txtExtraCmdVideo[nVideo].setEnabled(false);
+            txtExtraCmdVideo[nVideo].setColumns(10);
             GridBagConstraints gbc_txtExtraCmdVideo = new GridBagConstraints();
             gbc_txtExtraCmdVideo.fill = GridBagConstraints.HORIZONTAL;
             gbc_txtExtraCmdVideo.gridx = 1;
             gbc_txtExtraCmdVideo.gridy = 8;
             subPnlVideo[nVideo].add(txtExtraCmdVideo[nVideo], gbc_txtExtraCmdVideo);
-            txtExtraCmdVideo[nVideo].setColumns(10);
-
-            /* Start of mouse events for right-click menu */
-
-            Utils.addRCMenuMouseListener(txtNameVideo[nVideo]);
-            Utils.addRCMenuMouseListener(txtNumbStartVideo[nVideo]);
-            Utils.addRCMenuMouseListener(txtNumbPadVideo[nVideo]);
-            Utils.addRCMenuMouseListener(txtExtraCmdVideo[nVideo]);
-
-            /* End of mouse events for right-click menu */
 
             chbEditVideo[nVideo].addActionListener(new ActionListener() {
                 public void actionPerformed(ActionEvent e) {
-                    int curCbVideo = cbVideo.getSelectedIndex();
-                    boolean state = chbDefaultVideo[curCbVideo].isEnabled();
-                    
-                    chbEnableVideo[curCbVideo].setEnabled(!state);
-                    chbDefaultVideo[curCbVideo].setEnabled(!state);
-                    chbForcedVideo[curCbVideo].setEnabled(!state);
-                    chbNameVideo[curCbVideo].setEnabled(!state);
-                    chbLangVideo[curCbVideo].setEnabled(!state);
-                    chbExtraCmdVideo[curCbVideo].setEnabled(!state);
-
-                    if (txtNameVideo[curCbVideo].isEnabled() || chbNameVideo[curCbVideo].isSelected()) {
-                        txtNameVideo[curCbVideo].setEnabled(!state);
-                        chbNumbVideo[curCbVideo].setEnabled(!state);
-
-                        if (chbNumbVideo[curCbVideo].isSelected()) {
-                            lblNumbStartVideo[curCbVideo].setEnabled(!state);
-                            txtNumbStartVideo[curCbVideo].setEnabled(!state);
-                            lblNumbPadVideo[curCbVideo].setEnabled(!state);
-                            txtNumbPadVideo[curCbVideo].setEnabled(!state);
-                            lblNumbExplainVideo[curCbVideo].setEnabled(!state);
-                        }
-                    }
-
-                    if (rbNoEnableVideo[curCbVideo].isEnabled() || chbEnableVideo[curCbVideo].isSelected()) {
-                        rbNoEnableVideo[curCbVideo].setEnabled(!state);
-                        rbYesEnableVideo[curCbVideo].setEnabled(!state);
-                    }
-                    
-                    if (rbNoDefVideo[curCbVideo].isEnabled() || chbDefaultVideo[curCbVideo].isSelected()) {
-                        rbNoDefVideo[curCbVideo].setEnabled(!state);
-                        rbYesDefVideo[curCbVideo].setEnabled(!state);
-                    }
-
-                    if (rbNoForcedVideo[curCbVideo].isEnabled() || chbForcedVideo[curCbVideo].isSelected()) {
-                        rbNoForcedVideo[curCbVideo].setEnabled(!state);
-                        rbYesForcedVideo[curCbVideo].setEnabled(!state);
-                    }
-
-                    if (cbLangVideo[curCbVideo].isEnabled() || chbLangVideo[curCbVideo].isSelected()) {
-                        cbLangVideo[curCbVideo].setEnabled(!state);
-                    }
-
-                    if (txtExtraCmdVideo[curCbVideo].isEnabled() || chbExtraCmdVideo[curCbVideo].isSelected()) {
-                        chbExtraCmdVideo[curCbVideo].setEnabled(!state);
-                        txtExtraCmdVideo[curCbVideo].setEnabled(!state);
-                    }
+                    toggleVideo(cbVideo.getSelectedIndex());
                 }
             });
 
@@ -3152,7 +3474,7 @@ public class JMkvpropedit {
                     rbYesEnableVideo[curCbVideo].setEnabled(!state);
                 }
             });
-            
+
             chbDefaultVideo[nVideo].addActionListener(new ActionListener() {
                 public void actionPerformed(ActionEvent e) {
                     int curCbVideo = cbVideo.getSelectedIndex();
@@ -3252,10 +3574,9 @@ public class JMkvpropedit {
                 }
             });
 
-            cbVideo.addItem("Video Track " + (nVideo + 1));
+            cbVideo.addItem(LanguageManager.getString("track.video.title") + (nVideo + 1));
+            nVideo++;
         }
-
-        nVideo++;
     }
 
     private void addAudioTrack() {
@@ -3263,13 +3584,13 @@ public class JMkvpropedit {
             subPnlAudio[nAudio] = new JPanel();
             lyrdPnlAudio.add(subPnlAudio[nAudio], "subPnlAudio[" + nAudio + "]");
             GridBagLayout gbl_subPnlAudio = new GridBagLayout();
-            gbl_subPnlAudio.columnWidths = new int[] { 0, 0, 0 };
+            gbl_subPnlAudio.columnWidths = new int[] { 140, 0, 0 };
             gbl_subPnlAudio.rowHeights = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             gbl_subPnlAudio.columnWeights = new double[] { 0.0, 1.0, Double.MIN_VALUE };
             gbl_subPnlAudio.rowWeights = new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE };
             subPnlAudio[nAudio].setLayout(gbl_subPnlAudio);
 
-            chbEditAudio[nAudio] = new JCheckBox("Edit this track:");
+            chbEditAudio[nAudio] = new JCheckBox(LanguageManager.getString("track.edit"));
             GridBagConstraints gbc_chbEditAudio = new GridBagConstraints();
             gbc_chbEditAudio.insets = new Insets(0, 0, 10, 5);
             gbc_chbEditAudio.anchor = GridBagConstraints.WEST;
@@ -3277,7 +3598,7 @@ public class JMkvpropedit {
             gbc_chbEditAudio.gridy = 0;
             subPnlAudio[nAudio].add(chbEditAudio[nAudio], gbc_chbEditAudio);
 
-            chbEnableAudio[nAudio] = new JCheckBox("Enable track:");
+            chbEnableAudio[nAudio] = new JCheckBox(LanguageManager.getString("track.enable"));
             chbEnableAudio[nAudio].setEnabled(false);
             GridBagConstraints gbc_chbEnableaultAudio = new GridBagConstraints();
             gbc_chbEnableaultAudio.insets = new Insets(0, 0, 5, 5);
@@ -3297,20 +3618,20 @@ public class JMkvpropedit {
             gbc_pnlEnableControlsAudio.gridy = 1;
             subPnlAudio[nAudio].add(pnlEnableControlsAudio, gbc_pnlEnableControlsAudio);
 
-            rbYesEnableAudio[nAudio] = new JRadioButton("Yes");
+            rbYesEnableAudio[nAudio] = new JRadioButton(LanguageManager.getString("common.yes"));
             rbYesEnableAudio[nAudio].setEnabled(false);
             rbYesEnableAudio[nAudio].setSelected(true);
             pnlEnableControlsAudio.add(rbYesEnableAudio[nAudio]);
 
-            rbNoEnableAudio[nAudio] = new JRadioButton("No");
+            rbNoEnableAudio[nAudio] = new JRadioButton(LanguageManager.getString("common.no"));
             rbNoEnableAudio[nAudio].setEnabled(false);
             pnlEnableControlsAudio.add(rbNoEnableAudio[nAudio]);
 
             bgRbEnableAudio[nAudio] = new ButtonGroup();
             bgRbEnableAudio[nAudio].add(rbYesEnableAudio[nAudio]);
             bgRbEnableAudio[nAudio].add(rbNoEnableAudio[nAudio]);
-            
-            chbDefaultAudio[nAudio] = new JCheckBox("Default track:");
+
+            chbDefaultAudio[nAudio] = new JCheckBox(LanguageManager.getString("track.default"));
             chbDefaultAudio[nAudio].setEnabled(false);
             GridBagConstraints gbc_chbDefaultAudio = new GridBagConstraints();
             gbc_chbDefaultAudio.insets = new Insets(0, 0, 5, 5);
@@ -3330,12 +3651,12 @@ public class JMkvpropedit {
             gbc_pnlDefControlsAudio.gridy = 2;
             subPnlAudio[nAudio].add(pnlDefControlsAudio, gbc_pnlDefControlsAudio);
 
-            rbYesDefAudio[nAudio] = new JRadioButton("Yes");
+            rbYesDefAudio[nAudio] = new JRadioButton(LanguageManager.getString("common.yes"));
             rbYesDefAudio[nAudio].setEnabled(false);
             rbYesDefAudio[nAudio].setSelected(true);
             pnlDefControlsAudio.add(rbYesDefAudio[nAudio]);
 
-            rbNoDefAudio[nAudio] = new JRadioButton("No");
+            rbNoDefAudio[nAudio] = new JRadioButton(LanguageManager.getString("common.no"));
             rbNoDefAudio[nAudio].setEnabled(false);
             pnlDefControlsAudio.add(rbNoDefAudio[nAudio]);
 
@@ -3343,7 +3664,7 @@ public class JMkvpropedit {
             bgRbDefAudio[nAudio].add(rbYesDefAudio[nAudio]);
             bgRbDefAudio[nAudio].add(rbNoDefAudio[nAudio]);
 
-            chbForcedAudio[nAudio] = new JCheckBox("Forced track:");
+            chbForcedAudio[nAudio] = new JCheckBox(LanguageManager.getString("track.forced"));
             chbForcedAudio[nAudio].setEnabled(false);
             GridBagConstraints gbc_chbForcedAudio = new GridBagConstraints();
             gbc_chbForcedAudio.insets = new Insets(0, 0, 5, 5);
@@ -3363,12 +3684,12 @@ public class JMkvpropedit {
             gbc_pnlForControlsAudio.gridy = 3;
             subPnlAudio[nAudio].add(pnlForControlsAudio, gbc_pnlForControlsAudio);
 
-            rbYesForcedAudio[nAudio] = new JRadioButton("Yes");
+            rbYesForcedAudio[nAudio] = new JRadioButton(LanguageManager.getString("common.yes"));
             rbYesForcedAudio[nAudio].setEnabled(false);
             rbYesForcedAudio[nAudio].setSelected(true);
             pnlForControlsAudio.add(rbYesForcedAudio[nAudio]);
 
-            rbNoForcedAudio[nAudio] = new JRadioButton("No");
+            rbNoForcedAudio[nAudio] = new JRadioButton(LanguageManager.getString("common.no"));
             rbNoForcedAudio[nAudio].setEnabled(false);
             pnlForControlsAudio.add(rbNoForcedAudio[nAudio]);
 
@@ -3376,7 +3697,7 @@ public class JMkvpropedit {
             bgRbForcedAudio[nAudio].add(rbYesForcedAudio[nAudio]);
             bgRbForcedAudio[nAudio].add(rbNoForcedAudio[nAudio]);
 
-            chbNameAudio[nAudio] = new JCheckBox("Track name:");
+            chbNameAudio[nAudio] = new JCheckBox(LanguageManager.getString("track.name"));
             chbNameAudio[nAudio].setEnabled(false);
             GridBagConstraints gbc_chbNameAudio = new GridBagConstraints();
             gbc_chbNameAudio.insets = new Insets(0, 0, 5, 5);
@@ -3387,13 +3708,22 @@ public class JMkvpropedit {
 
             txtNameAudio[nAudio] = new JTextField();
             txtNameAudio[nAudio].setEnabled(false);
+            txtNameAudio[nAudio].setColumns(10);
             GridBagConstraints gbc_txtNameAudio = new GridBagConstraints();
             gbc_txtNameAudio.insets = new Insets(0, 0, 5, 0);
             gbc_txtNameAudio.fill = GridBagConstraints.HORIZONTAL;
             gbc_txtNameAudio.gridx = 1;
             gbc_txtNameAudio.gridy = 4;
             subPnlAudio[nAudio].add(txtNameAudio[nAudio], gbc_txtNameAudio);
-            txtNameAudio[nAudio].setColumns(10);
+
+            chbNumbAudio[nAudio] = new JCheckBox(LanguageManager.getString("track.numbering"));
+            chbNumbAudio[nAudio].setEnabled(false);
+            GridBagConstraints gbc_chbNumbAudio = new GridBagConstraints();
+            gbc_chbNumbAudio.insets = new Insets(0, 0, 5, 5);
+            gbc_chbNumbAudio.anchor = GridBagConstraints.WEST;
+            gbc_chbNumbAudio.gridx = 0;
+            gbc_chbNumbAudio.gridy = 5;
+            subPnlAudio[nAudio].add(chbNumbAudio[nAudio], gbc_chbNumbAudio);
 
             JPanel pnlNumbControlsAudio = new JPanel();
             FlowLayout fl_pnlNumbControlsAudio = (FlowLayout) pnlNumbControlsAudio.getLayout();
@@ -3401,74 +3731,66 @@ public class JMkvpropedit {
             fl_pnlNumbControlsAudio.setVgap(0);
             GridBagConstraints gbc_pnlNumbControlsAudio = new GridBagConstraints();
             gbc_pnlNumbControlsAudio.insets = new Insets(0, 0, 5, 0);
-            gbc_pnlNumbControlsAudio.fill = GridBagConstraints.BOTH;
+            gbc_pnlNumbControlsAudio.fill = GridBagConstraints.HORIZONTAL;
             gbc_pnlNumbControlsAudio.gridx = 1;
             gbc_pnlNumbControlsAudio.gridy = 5;
             subPnlAudio[nAudio].add(pnlNumbControlsAudio, gbc_pnlNumbControlsAudio);
 
-            chbNumbAudio[nAudio] = new JCheckBox("Numbering:");
-            chbNumbAudio[nAudio].setEnabled(false);
-            pnlNumbControlsAudio.add(chbNumbAudio[nAudio]);
-
-            Component horizontalStrut1 = Box.createHorizontalStrut(10);
-            pnlNumbControlsAudio.add(horizontalStrut1);
-
-            lblNumbStartAudio[nAudio] = new JLabel("Start");
+            lblNumbStartAudio[nAudio] = new JLabel(LanguageManager.getString("track.numbering.start"));
             lblNumbStartAudio[nAudio].setEnabled(false);
             pnlNumbControlsAudio.add(lblNumbStartAudio[nAudio]);
 
             txtNumbStartAudio[nAudio] = new JTextField();
             txtNumbStartAudio[nAudio].setText("1");
             txtNumbStartAudio[nAudio].setEnabled(false);
-            txtNumbStartAudio[nAudio].setColumns(10);
+            txtNumbStartAudio[nAudio].setColumns(3);
             pnlNumbControlsAudio.add(txtNumbStartAudio[nAudio]);
 
-            Component horizontalStrut2 = Box.createHorizontalStrut(5);
-            pnlNumbControlsAudio.add(horizontalStrut2);
-
-            lblNumbPadAudio[nAudio] = new JLabel("Padding");
+            lblNumbPadAudio[nAudio] = new JLabel(LanguageManager.getString("track.numbering.padding"));
             lblNumbPadAudio[nAudio].setEnabled(false);
             pnlNumbControlsAudio.add(lblNumbPadAudio[nAudio]);
 
             txtNumbPadAudio[nAudio] = new JTextField();
             txtNumbPadAudio[nAudio].setText("1");
             txtNumbPadAudio[nAudio].setEnabled(false);
-            txtNumbPadAudio[nAudio].setColumns(10);
+            txtNumbPadAudio[nAudio].setColumns(3);
             pnlNumbControlsAudio.add(txtNumbPadAudio[nAudio]);
 
             lblNumbExplainAudio[nAudio] = new JLabel(
-                    "      To use it, add {num} to the name (e.g. \"My Audio {num}\"). Use {file_name} to use the file name as the name.");
+                    "<html>" + LanguageManager.getString("track.numbering.explain") + "</html>");
             lblNumbExplainAudio[nAudio].setEnabled(false);
             GridBagConstraints gbc_lblNumbExplainAudio = new GridBagConstraints();
-            gbc_lblNumbExplainAudio.insets = new Insets(0, 0, 10, 0);
-            gbc_lblNumbExplainAudio.anchor = GridBagConstraints.WEST;
+            gbc_lblNumbExplainAudio.insets = new Insets(0, 0, 5, 0);
+            gbc_lblNumbExplainAudio.fill = GridBagConstraints.HORIZONTAL;
             gbc_lblNumbExplainAudio.gridx = 1;
             gbc_lblNumbExplainAudio.gridy = 6;
             subPnlAudio[nAudio].add(lblNumbExplainAudio[nAudio], gbc_lblNumbExplainAudio);
 
-            chbLangAudio[nAudio] = new JCheckBox("Language:");
+            chbLangAudio[nAudio] = new JCheckBox(LanguageManager.getString("track.language"));
             chbLangAudio[nAudio].setEnabled(false);
             GridBagConstraints gbc_chbLangAudio = new GridBagConstraints();
+            gbc_chbLangAudio.insets = new Insets(0, 0, 5, 5);
             gbc_chbLangAudio.anchor = GridBagConstraints.WEST;
-            gbc_chbLangAudio.insets = new Insets(0, 0, 10, 5);
             gbc_chbLangAudio.gridx = 0;
             gbc_chbLangAudio.gridy = 7;
             subPnlAudio[nAudio].add(chbLangAudio[nAudio], gbc_chbLangAudio);
 
             cbLangAudio[nAudio] = new JComboBox<String>();
-            cbLangAudio[nAudio].setEnabled(false);
-            cbLangAudio[nAudio].setModel(new DefaultComboBoxModel<String>(mkvStrings.getLangNames()));
+            cbLangAudio[nAudio]
+                    .setModel(new DefaultComboBoxModel<String>(mkvStrings.getLangNameList().toArray(new String[0])));
             cbLangAudio[nAudio].setSelectedIndex(mkvStrings.getLangCodeList().indexOf("und"));
+            cbLangAudio[nAudio].setEnabled(false);
             GridBagConstraints gbc_cbLangAudio = new GridBagConstraints();
-            gbc_cbLangAudio.insets = new Insets(0, 0, 10, 0);
-            gbc_cbLangAudio.anchor = GridBagConstraints.WEST;
+            gbc_cbLangAudio.insets = new Insets(0, 0, 5, 0);
+            gbc_cbLangAudio.fill = GridBagConstraints.HORIZONTAL;
             gbc_cbLangAudio.gridx = 1;
             gbc_cbLangAudio.gridy = 7;
             subPnlAudio[nAudio].add(cbLangAudio[nAudio], gbc_cbLangAudio);
 
-            chbExtraCmdAudio[nAudio] = new JCheckBox("Extra parameters:");
+            chbExtraCmdAudio[nAudio] = new JCheckBox(LanguageManager.getString("track.extra.cmd"));
             chbExtraCmdAudio[nAudio].setEnabled(false);
             GridBagConstraints gbc_chbExtraCmdAudio = new GridBagConstraints();
+            gbc_chbExtraCmdAudio.insets = new Insets(0, 0, 0, 5);
             gbc_chbExtraCmdAudio.anchor = GridBagConstraints.WEST;
             gbc_chbExtraCmdAudio.gridx = 0;
             gbc_chbExtraCmdAudio.gridy = 8;
@@ -3476,70 +3798,51 @@ public class JMkvpropedit {
 
             txtExtraCmdAudio[nAudio] = new JTextField();
             txtExtraCmdAudio[nAudio].setEnabled(false);
+            txtExtraCmdAudio[nAudio].setColumns(10);
             GridBagConstraints gbc_txtExtraCmdAudio = new GridBagConstraints();
             gbc_txtExtraCmdAudio.fill = GridBagConstraints.HORIZONTAL;
             gbc_txtExtraCmdAudio.gridx = 1;
             gbc_txtExtraCmdAudio.gridy = 8;
             subPnlAudio[nAudio].add(txtExtraCmdAudio[nAudio], gbc_txtExtraCmdAudio);
-            txtExtraCmdAudio[nAudio].setColumns(10);
 
-            /* Start of mouse events for right-click menu */
+            final int currentTrackIdx = nAudio;
 
-            Utils.addRCMenuMouseListener(txtNameAudio[nAudio]);
-            Utils.addRCMenuMouseListener(txtNumbStartAudio[nAudio]);
-            Utils.addRCMenuMouseListener(txtNumbPadAudio[nAudio]);
-            Utils.addRCMenuMouseListener(txtExtraCmdAudio[nAudio]);
+            new java.awt.dnd.DropTarget(subPnlAudio[nAudio], new java.awt.dnd.DropTargetListener() {
+                public void dragEnter(java.awt.dnd.DropTargetDragEvent dtde) {
+                }
 
-            /* End of mouse events for right-click menu */
+                public void dragOver(java.awt.dnd.DropTargetDragEvent dtde) {
+                }
+
+                public void dropActionChanged(java.awt.dnd.DropTargetDragEvent dtde) {
+                }
+
+                public void dragExit(java.awt.dnd.DropTargetEvent dte) {
+                }
+
+                public void drop(java.awt.dnd.DropTargetDropEvent dtde) {
+                    try {
+                        java.awt.datatransfer.Transferable tr = dtde.getTransferable();
+                        if (tr.isDataFlavorSupported(java.awt.datatransfer.DataFlavor.stringFlavor)) {
+                            dtde.acceptDrop(java.awt.dnd.DnDConstants.ACTION_COPY);
+                            String data = (String) tr.getTransferData(java.awt.datatransfer.DataFlavor.stringFlavor);
+                            if (data.startsWith("AudioProfile:")) {
+                                int profileIdx = Integer.parseInt(data.substring(data.indexOf(":") + 1));
+                                applyAudioProfile(profileManager.getProfiles(ProfileType.AUDIO).get(profileIdx),
+                                        currentTrackIdx);
+                                dtde.dropComplete(true);
+                                return;
+                            }
+                        }
+                    } catch (Exception e) {
+                    }
+                    dtde.rejectDrop();
+                }
+            });
 
             chbEditAudio[nAudio].addActionListener(new ActionListener() {
                 public void actionPerformed(ActionEvent e) {
-                    int curCbAudio = cbAudio.getSelectedIndex();
-                    boolean state = chbDefaultAudio[curCbAudio].isEnabled();
-                    
-                    chbEnableAudio[curCbAudio].setEnabled(!state);
-                    chbDefaultAudio[curCbAudio].setEnabled(!state);
-                    chbForcedAudio[curCbAudio].setEnabled(!state);
-                    chbNameAudio[curCbAudio].setEnabled(!state);
-                    chbLangAudio[curCbAudio].setEnabled(!state);
-                    chbExtraCmdAudio[curCbAudio].setEnabled(!state);
-
-                    if (txtNameAudio[curCbAudio].isEnabled() || chbNameAudio[curCbAudio].isSelected()) {
-                        txtNameAudio[curCbAudio].setEnabled(!state);
-                        chbNumbAudio[curCbAudio].setEnabled(!state);
-
-                        if (chbNumbAudio[curCbAudio].isSelected()) {
-                            lblNumbStartAudio[curCbAudio].setEnabled(!state);
-                            txtNumbStartAudio[curCbAudio].setEnabled(!state);
-                            lblNumbPadAudio[curCbAudio].setEnabled(!state);
-                            txtNumbPadAudio[curCbAudio].setEnabled(!state);
-                            lblNumbExplainAudio[curCbAudio].setEnabled(!state);
-                        }
-                    }
-
-                    if (rbNoEnableAudio[curCbAudio].isEnabled() || chbEnableAudio[curCbAudio].isSelected()) {
-                        rbNoEnableAudio[curCbAudio].setEnabled(!state);
-                        rbYesEnableAudio[curCbAudio].setEnabled(!state);
-                    }
-                    
-                    if (rbNoDefAudio[curCbAudio].isEnabled() || chbDefaultAudio[curCbAudio].isSelected()) {
-                        rbNoDefAudio[curCbAudio].setEnabled(!state);
-                        rbYesDefAudio[curCbAudio].setEnabled(!state);
-                    }
-
-                    if (rbNoForcedAudio[curCbAudio].isEnabled() || chbForcedAudio[curCbAudio].isSelected()) {
-                        rbNoForcedAudio[curCbAudio].setEnabled(!state);
-                        rbYesForcedAudio[curCbAudio].setEnabled(!state);
-                    }
-
-                    if (cbLangAudio[curCbAudio].isEnabled() || chbLangAudio[curCbAudio].isSelected()) {
-                        cbLangAudio[curCbAudio].setEnabled(!state);
-                    }
-
-                    if (txtExtraCmdAudio[curCbAudio].isEnabled() || chbExtraCmdAudio[curCbAudio].isSelected()) {
-                        chbExtraCmdAudio[curCbAudio].setEnabled(!state);
-                        txtExtraCmdAudio[curCbAudio].setEnabled(!state);
-                    }
+                    toggleAudio(cbAudio.getSelectedIndex());
                 }
             });
 
@@ -3552,7 +3855,7 @@ public class JMkvpropedit {
                     rbYesEnableAudio[curCbAudio].setEnabled(!state);
                 }
             });
-            
+
             chbDefaultAudio[nAudio].addActionListener(new ActionListener() {
                 public void actionPerformed(ActionEvent e) {
                     int curCbAudio = cbAudio.getSelectedIndex();
@@ -3652,10 +3955,9 @@ public class JMkvpropedit {
                 }
             });
 
-            cbAudio.addItem("Audio Track " + (nAudio + 1));
+            cbAudio.addItem(LanguageManager.getString("track.audio.title") + (nAudio + 1));
+            nAudio++;
         }
-
-        nAudio++;
     }
 
     private void addSubtitleTrack() {
@@ -3663,13 +3965,13 @@ public class JMkvpropedit {
             subPnlSubtitle[nSubtitle] = new JPanel();
             lyrdPnlSubtitle.add(subPnlSubtitle[nSubtitle], "subPnlSubtitle[" + nSubtitle + "]");
             GridBagLayout gbl_subPnlSubtitle = new GridBagLayout();
-            gbl_subPnlSubtitle.columnWidths = new int[] { 0, 0, 0 };
+            gbl_subPnlSubtitle.columnWidths = new int[] { 140, 0, 0 };
             gbl_subPnlSubtitle.rowHeights = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             gbl_subPnlSubtitle.columnWeights = new double[] { 0.0, 1.0, Double.MIN_VALUE };
             gbl_subPnlSubtitle.rowWeights = new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE };
             subPnlSubtitle[nSubtitle].setLayout(gbl_subPnlSubtitle);
 
-            chbEditSubtitle[nSubtitle] = new JCheckBox("Edit this track:");
+            chbEditSubtitle[nSubtitle] = new JCheckBox(LanguageManager.getString("track.edit"));
             GridBagConstraints gbc_chbEditSubtitle = new GridBagConstraints();
             gbc_chbEditSubtitle.insets = new Insets(0, 0, 10, 5);
             gbc_chbEditSubtitle.anchor = GridBagConstraints.WEST;
@@ -3677,7 +3979,7 @@ public class JMkvpropedit {
             gbc_chbEditSubtitle.gridy = 0;
             subPnlSubtitle[nSubtitle].add(chbEditSubtitle[nSubtitle], gbc_chbEditSubtitle);
 
-            chbEnableSubtitle[nSubtitle] = new JCheckBox("Enable track:");
+            chbEnableSubtitle[nSubtitle] = new JCheckBox(LanguageManager.getString("track.enable"));
             chbEnableSubtitle[nSubtitle].setEnabled(false);
             GridBagConstraints gbc_chbEnableSubtitle = new GridBagConstraints();
             gbc_chbEnableSubtitle.insets = new Insets(0, 0, 5, 5);
@@ -3697,20 +3999,20 @@ public class JMkvpropedit {
             gbc_pnlEnableControlsSubtitle.gridy = 1;
             subPnlSubtitle[nSubtitle].add(pnlEnableControlsSubtitle, gbc_pnlEnableControlsSubtitle);
 
-            rbYesEnableSubtitle[nSubtitle] = new JRadioButton("Yes");
+            rbYesEnableSubtitle[nSubtitle] = new JRadioButton(LanguageManager.getString("common.yes"));
             rbYesEnableSubtitle[nSubtitle].setEnabled(false);
             rbYesEnableSubtitle[nSubtitle].setSelected(true);
             pnlEnableControlsSubtitle.add(rbYesEnableSubtitle[nSubtitle]);
 
-            rbNoEnableSubtitle[nSubtitle] = new JRadioButton("No");
+            rbNoEnableSubtitle[nSubtitle] = new JRadioButton(LanguageManager.getString("common.no"));
             rbNoEnableSubtitle[nSubtitle].setEnabled(false);
             pnlEnableControlsSubtitle.add(rbNoEnableSubtitle[nSubtitle]);
 
             bgRbEnableSubtitle[nSubtitle] = new ButtonGroup();
             bgRbEnableSubtitle[nSubtitle].add(rbYesEnableSubtitle[nSubtitle]);
             bgRbEnableSubtitle[nSubtitle].add(rbNoEnableSubtitle[nSubtitle]);
-            
-            chbDefaultSubtitle[nSubtitle] = new JCheckBox("Default track:");
+
+            chbDefaultSubtitle[nSubtitle] = new JCheckBox(LanguageManager.getString("track.default"));
             chbDefaultSubtitle[nSubtitle].setEnabled(false);
             GridBagConstraints gbc_chbDefaultSubtitle = new GridBagConstraints();
             gbc_chbDefaultSubtitle.insets = new Insets(0, 0, 5, 5);
@@ -3730,12 +4032,12 @@ public class JMkvpropedit {
             gbc_pnlDefControlsSubtitle.gridy = 2;
             subPnlSubtitle[nSubtitle].add(pnlDefControlsSubtitle, gbc_pnlDefControlsSubtitle);
 
-            rbYesDefSubtitle[nSubtitle] = new JRadioButton("Yes");
+            rbYesDefSubtitle[nSubtitle] = new JRadioButton(LanguageManager.getString("common.yes"));
             rbYesDefSubtitle[nSubtitle].setEnabled(false);
             rbYesDefSubtitle[nSubtitle].setSelected(true);
             pnlDefControlsSubtitle.add(rbYesDefSubtitle[nSubtitle]);
 
-            rbNoDefSubtitle[nSubtitle] = new JRadioButton("No");
+            rbNoDefSubtitle[nSubtitle] = new JRadioButton(LanguageManager.getString("common.no"));
             rbNoDefSubtitle[nSubtitle].setEnabled(false);
             pnlDefControlsSubtitle.add(rbNoDefSubtitle[nSubtitle]);
 
@@ -3743,7 +4045,7 @@ public class JMkvpropedit {
             bgRbDefSubtitle[nSubtitle].add(rbYesDefSubtitle[nSubtitle]);
             bgRbDefSubtitle[nSubtitle].add(rbNoDefSubtitle[nSubtitle]);
 
-            chbForcedSubtitle[nSubtitle] = new JCheckBox("Forced track:");
+            chbForcedSubtitle[nSubtitle] = new JCheckBox(LanguageManager.getString("track.forced"));
             chbForcedSubtitle[nSubtitle].setEnabled(false);
             GridBagConstraints gbc_chbForcedSubtitle = new GridBagConstraints();
             gbc_chbForcedSubtitle.insets = new Insets(0, 0, 5, 5);
@@ -3763,12 +4065,12 @@ public class JMkvpropedit {
             gbc_pnlForControlsSubtitle.gridy = 3;
             subPnlSubtitle[nSubtitle].add(pnlForControlsSubtitle, gbc_pnlForControlsSubtitle);
 
-            rbYesForcedSubtitle[nSubtitle] = new JRadioButton("Yes");
+            rbYesForcedSubtitle[nSubtitle] = new JRadioButton(LanguageManager.getString("common.yes"));
             rbYesForcedSubtitle[nSubtitle].setEnabled(false);
             rbYesForcedSubtitle[nSubtitle].setSelected(true);
             pnlForControlsSubtitle.add(rbYesForcedSubtitle[nSubtitle]);
 
-            rbNoForcedSubtitle[nSubtitle] = new JRadioButton("No");
+            rbNoForcedSubtitle[nSubtitle] = new JRadioButton(LanguageManager.getString("common.no"));
             rbNoForcedSubtitle[nSubtitle].setEnabled(false);
             pnlForControlsSubtitle.add(rbNoForcedSubtitle[nSubtitle]);
 
@@ -3776,7 +4078,7 @@ public class JMkvpropedit {
             bgRbForcedSubtitle[nSubtitle].add(rbYesForcedSubtitle[nSubtitle]);
             bgRbForcedSubtitle[nSubtitle].add(rbNoForcedSubtitle[nSubtitle]);
 
-            chbNameSubtitle[nSubtitle] = new JCheckBox("Track name:");
+            chbNameSubtitle[nSubtitle] = new JCheckBox(LanguageManager.getString("track.name"));
             chbNameSubtitle[nSubtitle].setEnabled(false);
             GridBagConstraints gbc_chbNameSubtitle = new GridBagConstraints();
             gbc_chbNameSubtitle.insets = new Insets(0, 0, 5, 5);
@@ -3787,13 +4089,13 @@ public class JMkvpropedit {
 
             txtNameSubtitle[nSubtitle] = new JTextField();
             txtNameSubtitle[nSubtitle].setEnabled(false);
+            txtNameSubtitle[nSubtitle].setColumns(10);
             GridBagConstraints gbc_txtNameSubtitle = new GridBagConstraints();
             gbc_txtNameSubtitle.insets = new Insets(0, 0, 5, 0);
             gbc_txtNameSubtitle.fill = GridBagConstraints.HORIZONTAL;
             gbc_txtNameSubtitle.gridx = 1;
             gbc_txtNameSubtitle.gridy = 4;
             subPnlSubtitle[nSubtitle].add(txtNameSubtitle[nSubtitle], gbc_txtNameSubtitle);
-            txtNameSubtitle[nSubtitle].setColumns(10);
 
             JPanel pnlNumbControlsSubtitle = new JPanel();
             FlowLayout fl_pnlNumbControlsSubtitle = (FlowLayout) pnlNumbControlsSubtitle.getLayout();
@@ -3801,56 +4103,55 @@ public class JMkvpropedit {
             fl_pnlNumbControlsSubtitle.setVgap(0);
             GridBagConstraints gbc_pnlNumbControlsSubtitle = new GridBagConstraints();
             gbc_pnlNumbControlsSubtitle.insets = new Insets(0, 0, 5, 0);
-            gbc_pnlNumbControlsSubtitle.fill = GridBagConstraints.BOTH;
+            gbc_pnlNumbControlsSubtitle.fill = GridBagConstraints.HORIZONTAL;
             gbc_pnlNumbControlsSubtitle.gridx = 1;
             gbc_pnlNumbControlsSubtitle.gridy = 5;
             subPnlSubtitle[nSubtitle].add(pnlNumbControlsSubtitle, gbc_pnlNumbControlsSubtitle);
 
-            chbNumbSubtitle[nSubtitle] = new JCheckBox("Numbering:");
+            chbNumbSubtitle[nSubtitle] = new JCheckBox(LanguageManager.getString("track.numbering"));
             chbNumbSubtitle[nSubtitle].setEnabled(false);
-            pnlNumbControlsSubtitle.add(chbNumbSubtitle[nSubtitle]);
+            GridBagConstraints gbc_chbNumbSubtitle = new GridBagConstraints();
+            gbc_chbNumbSubtitle.insets = new Insets(0, 0, 5, 5);
+            gbc_chbNumbSubtitle.anchor = GridBagConstraints.WEST;
+            gbc_chbNumbSubtitle.gridx = 0;
+            gbc_chbNumbSubtitle.gridy = 5;
+            subPnlSubtitle[nSubtitle].add(chbNumbSubtitle[nSubtitle], gbc_chbNumbSubtitle);
 
-            Component horizontalStrut1 = Box.createHorizontalStrut(10);
-            pnlNumbControlsSubtitle.add(horizontalStrut1);
-
-            lblNumbStartSubtitle[nSubtitle] = new JLabel("Start");
+            lblNumbStartSubtitle[nSubtitle] = new JLabel(LanguageManager.getString("track.numbering.start"));
             lblNumbStartSubtitle[nSubtitle].setEnabled(false);
             pnlNumbControlsSubtitle.add(lblNumbStartSubtitle[nSubtitle]);
 
             txtNumbStartSubtitle[nSubtitle] = new JTextField();
             txtNumbStartSubtitle[nSubtitle].setText("1");
             txtNumbStartSubtitle[nSubtitle].setEnabled(false);
-            txtNumbStartSubtitle[nSubtitle].setColumns(10);
+            txtNumbStartSubtitle[nSubtitle].setColumns(3);
             pnlNumbControlsSubtitle.add(txtNumbStartSubtitle[nSubtitle]);
 
-            Component horizontalStrut2 = Box.createHorizontalStrut(5);
-            pnlNumbControlsSubtitle.add(horizontalStrut2);
-
-            lblNumbPadSubtitle[nSubtitle] = new JLabel("Padding");
+            lblNumbPadSubtitle[nSubtitle] = new JLabel(LanguageManager.getString("track.numbering.padding"));
             lblNumbPadSubtitle[nSubtitle].setEnabled(false);
             pnlNumbControlsSubtitle.add(lblNumbPadSubtitle[nSubtitle]);
 
             txtNumbPadSubtitle[nSubtitle] = new JTextField();
             txtNumbPadSubtitle[nSubtitle].setText("1");
             txtNumbPadSubtitle[nSubtitle].setEnabled(false);
-            txtNumbPadSubtitle[nSubtitle].setColumns(10);
+            txtNumbPadSubtitle[nSubtitle].setColumns(3);
             pnlNumbControlsSubtitle.add(txtNumbPadSubtitle[nSubtitle]);
 
             lblNumbExplainSubtitle[nSubtitle] = new JLabel(
-                    "      To use it, add {num} to the name (e.g. \"My Subtitle {num}\"). Use {file_name} to use the file name as the name.");
+                    "<html>" + LanguageManager.getString("track.numbering.explain") + "</html>");
             lblNumbExplainSubtitle[nSubtitle].setEnabled(false);
             GridBagConstraints gbc_lblNumbExplainSubtitle = new GridBagConstraints();
-            gbc_lblNumbExplainSubtitle.insets = new Insets(0, 0, 10, 0);
-            gbc_lblNumbExplainSubtitle.anchor = GridBagConstraints.WEST;
+            gbc_lblNumbExplainSubtitle.insets = new Insets(0, 0, 5, 0);
+            gbc_lblNumbExplainSubtitle.fill = GridBagConstraints.HORIZONTAL;
             gbc_lblNumbExplainSubtitle.gridx = 1;
             gbc_lblNumbExplainSubtitle.gridy = 6;
             subPnlSubtitle[nSubtitle].add(lblNumbExplainSubtitle[nSubtitle], gbc_lblNumbExplainSubtitle);
 
-            chbLangSubtitle[nSubtitle] = new JCheckBox("Language:");
+            chbLangSubtitle[nSubtitle] = new JCheckBox(LanguageManager.getString("track.language"));
             chbLangSubtitle[nSubtitle].setEnabled(false);
             GridBagConstraints gbc_chbLangSubtitle = new GridBagConstraints();
             gbc_chbLangSubtitle.anchor = GridBagConstraints.WEST;
-            gbc_chbLangSubtitle.insets = new Insets(0, 0, 10, 5);
+            gbc_chbLangSubtitle.insets = new Insets(0, 0, 5, 5);
             gbc_chbLangSubtitle.gridx = 0;
             gbc_chbLangSubtitle.gridy = 7;
             subPnlSubtitle[nSubtitle].add(chbLangSubtitle[nSubtitle], gbc_chbLangSubtitle);
@@ -3860,13 +4161,13 @@ public class JMkvpropedit {
             cbLangSubtitle[nSubtitle].setModel(new DefaultComboBoxModel<String>(mkvStrings.getLangNames()));
             cbLangSubtitle[nSubtitle].setSelectedIndex(mkvStrings.getLangCodeList().indexOf("und"));
             GridBagConstraints gbc_cbLangSubtitle = new GridBagConstraints();
-            gbc_cbLangSubtitle.insets = new Insets(0, 0, 10, 0);
+            gbc_cbLangSubtitle.insets = new Insets(0, 0, 5, 0);
             gbc_cbLangSubtitle.anchor = GridBagConstraints.WEST;
             gbc_cbLangSubtitle.gridx = 1;
             gbc_cbLangSubtitle.gridy = 7;
             subPnlSubtitle[nSubtitle].add(cbLangSubtitle[nSubtitle], gbc_cbLangSubtitle);
 
-            chbExtraCmdSubtitle[nSubtitle] = new JCheckBox("Extra parameters:");
+            chbExtraCmdSubtitle[nSubtitle] = new JCheckBox(LanguageManager.getString("track.extra.cmd"));
             chbExtraCmdSubtitle[nSubtitle].setEnabled(false);
             GridBagConstraints gbc_chbExtraCmdSubtitle = new GridBagConstraints();
             gbc_chbExtraCmdSubtitle.anchor = GridBagConstraints.WEST;
@@ -3876,12 +4177,12 @@ public class JMkvpropedit {
 
             txtExtraCmdSubtitle[nSubtitle] = new JTextField();
             txtExtraCmdSubtitle[nSubtitle].setEnabled(false);
+            txtExtraCmdSubtitle[nSubtitle].setColumns(10);
             GridBagConstraints gbc_txtExtraCmdSubtitle = new GridBagConstraints();
             gbc_txtExtraCmdSubtitle.fill = GridBagConstraints.HORIZONTAL;
             gbc_txtExtraCmdSubtitle.gridx = 1;
             gbc_txtExtraCmdSubtitle.gridy = 8;
             subPnlSubtitle[nSubtitle].add(txtExtraCmdSubtitle[nSubtitle], gbc_txtExtraCmdSubtitle);
-            txtExtraCmdSubtitle[nSubtitle].setColumns(10);
 
             /* Start of mouse events for right-click menu */
 
@@ -3895,52 +4196,60 @@ public class JMkvpropedit {
             chbEditSubtitle[nSubtitle].addActionListener(new ActionListener() {
                 public void actionPerformed(ActionEvent e) {
                     int curCbSubtitle = cbSubtitle.getSelectedIndex();
-                    boolean state = chbDefaultSubtitle[curCbSubtitle].isEnabled();
+                    boolean isEdit = chbEditSubtitle[curCbSubtitle].isSelected();
 
-                    chbEnableSubtitle[curCbSubtitle].setEnabled(!state);
-                    chbDefaultSubtitle[curCbSubtitle].setEnabled(!state);
-                    chbForcedSubtitle[curCbSubtitle].setEnabled(!state);
-                    chbNameSubtitle[curCbSubtitle].setEnabled(!state);
-                    chbLangSubtitle[curCbSubtitle].setEnabled(!state);
-                    chbExtraCmdSubtitle[curCbSubtitle].setEnabled(!state);
+                    chbEnableSubtitle[curCbSubtitle].setEnabled(isEdit);
+                    chbDefaultSubtitle[curCbSubtitle].setEnabled(isEdit);
+                    chbForcedSubtitle[curCbSubtitle].setEnabled(isEdit);
+                    chbNameSubtitle[curCbSubtitle].setEnabled(isEdit);
+                    chbLangSubtitle[curCbSubtitle].setEnabled(isEdit);
+                    chbExtraCmdSubtitle[curCbSubtitle].setEnabled(isEdit);
 
                     if (txtNameSubtitle[curCbSubtitle].isEnabled() || chbNameSubtitle[curCbSubtitle].isSelected()) {
-                        txtNameSubtitle[curCbSubtitle].setEnabled(!state);
-                        chbNumbSubtitle[curCbSubtitle].setEnabled(!state);
+                        txtNameSubtitle[curCbSubtitle]
+                                .setEnabled(isEdit && chbNameSubtitle[curCbSubtitle].isSelected());
+                        chbNumbSubtitle[curCbSubtitle]
+                                .setEnabled(isEdit && chbNameSubtitle[curCbSubtitle].isSelected());
 
                         if (chbNumbSubtitle[curCbSubtitle].isSelected()) {
-                            lblNumbStartSubtitle[curCbSubtitle].setEnabled(!state);
-                            txtNumbStartSubtitle[curCbSubtitle].setEnabled(!state);
-                            lblNumbPadSubtitle[curCbSubtitle].setEnabled(!state);
-                            txtNumbPadSubtitle[curCbSubtitle].setEnabled(!state);
-                            lblNumbExplainSubtitle[curCbSubtitle].setEnabled(!state);
+                            boolean isNumb = isEdit && chbNameSubtitle[curCbSubtitle].isSelected();
+                            lblNumbStartSubtitle[curCbSubtitle].setEnabled(isNumb);
+                            txtNumbStartSubtitle[curCbSubtitle].setEnabled(isNumb);
+                            lblNumbPadSubtitle[curCbSubtitle].setEnabled(isNumb);
+                            txtNumbPadSubtitle[curCbSubtitle].setEnabled(isNumb);
+                            lblNumbExplainSubtitle[curCbSubtitle].setEnabled(isNumb);
                         }
                     }
 
-                    if (rbNoEnableSubtitle[curCbSubtitle].isEnabled() || chbEnableSubtitle[curCbSubtitle].isSelected()) {
-                        rbNoEnableSubtitle[curCbSubtitle].setEnabled(!state);
-                        rbYesEnableSubtitle[curCbSubtitle].setEnabled(!state);
+                    if (rbNoEnableSubtitle[curCbSubtitle].isEnabled()
+                            || chbEnableSubtitle[curCbSubtitle].isSelected()) {
+                        boolean isEnable = isEdit && chbEnableSubtitle[curCbSubtitle].isSelected();
+                        rbNoEnableSubtitle[curCbSubtitle].setEnabled(isEnable);
+                        rbYesEnableSubtitle[curCbSubtitle].setEnabled(isEnable);
                     }
-                    
+
                     if (rbNoDefSubtitle[curCbSubtitle].isEnabled() || chbDefaultSubtitle[curCbSubtitle].isSelected()) {
-                        rbNoDefSubtitle[curCbSubtitle].setEnabled(!state);
-                        rbYesDefSubtitle[curCbSubtitle].setEnabled(!state);
+                        boolean isDef = isEdit && chbDefaultSubtitle[curCbSubtitle].isSelected();
+                        rbNoDefSubtitle[curCbSubtitle].setEnabled(isDef);
+                        rbYesDefSubtitle[curCbSubtitle].setEnabled(isDef);
                     }
 
                     if (rbNoForcedSubtitle[curCbSubtitle].isEnabled()
                             || chbForcedSubtitle[curCbSubtitle].isSelected()) {
-                        rbNoForcedSubtitle[curCbSubtitle].setEnabled(!state);
-                        rbYesForcedSubtitle[curCbSubtitle].setEnabled(!state);
+                        boolean isForced = isEdit && chbForcedSubtitle[curCbSubtitle].isSelected();
+                        rbNoForcedSubtitle[curCbSubtitle].setEnabled(isForced);
+                        rbYesForcedSubtitle[curCbSubtitle].setEnabled(isForced);
                     }
 
                     if (cbLangSubtitle[curCbSubtitle].isEnabled() || chbLangSubtitle[curCbSubtitle].isSelected()) {
-                        cbLangSubtitle[curCbSubtitle].setEnabled(!state);
+                        cbLangSubtitle[curCbSubtitle].setEnabled(isEdit && chbLangSubtitle[curCbSubtitle].isSelected());
                     }
 
                     if (txtExtraCmdSubtitle[curCbSubtitle].isEnabled()
                             || chbExtraCmdSubtitle[curCbSubtitle].isSelected()) {
-                        chbExtraCmdSubtitle[curCbSubtitle].setEnabled(!state);
-                        txtExtraCmdSubtitle[curCbSubtitle].setEnabled(!state);
+                        boolean isExtra = isEdit && chbExtraCmdSubtitle[curCbSubtitle].isSelected();
+                        // chbExtraCmdSubtitle is already linked to isEdit above
+                        txtExtraCmdSubtitle[curCbSubtitle].setEnabled(isExtra);
                     }
                 }
             });
@@ -3954,7 +4263,7 @@ public class JMkvpropedit {
                     rbYesEnableSubtitle[curCbSubtitle].setEnabled(!state);
                 }
             });
-            
+
             chbDefaultSubtitle[nSubtitle].addActionListener(new ActionListener() {
                 public void actionPerformed(ActionEvent e) {
                     int curCbSubtitle = cbSubtitle.getSelectedIndex();
@@ -4054,7 +4363,7 @@ public class JMkvpropedit {
                 }
             });
 
-            cbSubtitle.addItem("Subtitle Track " + (nSubtitle + 1));
+            cbSubtitle.addItem(LanguageManager.getString("track.subtitle.title") + (nSubtitle + 1));
         }
 
         nSubtitle++;
@@ -4075,71 +4384,74 @@ public class JMkvpropedit {
 
             if (chbTags.isSelected()) {
                 switch (cbTags.getSelectedIndex()) {
-                case 0:
-                    cmdLineGeneral[i] += " --tags all:";
-                    cmdLineGeneralOpt[i] += " --tags all:";
-                    break;
-                case 1:
-                    if (txtTags.getText().trim().isEmpty()) {
+                    case 0:
                         cmdLineGeneral[i] += " --tags all:";
                         cmdLineGeneralOpt[i] += " --tags all:";
-                    } else {
-                        if (Utils.isWindows()) {
-                            cmdLineGeneral[i] += " --tags all:\"" + txtTags.getText() + "\"";
-                            cmdLineGeneralOpt[i] += " --tags all:\"" + Utils.escapeName(txtTags.getText()) + "\"";
+                        break;
+                    case 1:
+                        if (txtTags.getText().trim().isEmpty()) {
+                            cmdLineGeneral[i] += " --tags all:";
+                            cmdLineGeneralOpt[i] += " --tags all:";
                         } else {
-                            cmdLineGeneral[i] += " --tags all:\"" + Utils.escapeQuotes(txtTags.getText()) + "\"";
-                            cmdLineGeneralOpt[i] += " --tags all:\"" + Utils.escapeName(txtTags.getText()) + "\"";
+                            if (Utils.isWindows()) {
+                                cmdLineGeneral[i] += " --tags all:\"" + txtTags.getText() + "\"";
+                                cmdLineGeneralOpt[i] += " --tags all:\"" + Utils.escapeName(txtTags.getText()) + "\"";
+                            } else {
+                                cmdLineGeneral[i] += " --tags all:\"" + Utils.escapeQuotes(txtTags.getText()) + "\"";
+                                cmdLineGeneralOpt[i] += " --tags all:\"" + Utils.escapeName(txtTags.getText()) + "\"";
+                            }
                         }
-                    }
-                    break;
-                case 2:
-                    String tmpTags = Utils.getPathWithoutExt((String) modelFiles.get(i)) + txtTags.getText()
-                            + cbExtTags.getSelectedItem();
+                        break;
+                    case 2:
+                        String tmpTags = Utils.getPathWithoutExt(modelFiles.get(i)) + txtTags.getText()
+                                + cbExtTags.getSelectedItem();
 
-                    if (Utils.isWindows()) {
-                        cmdLineGeneral[i] += " --tags all:\"" + tmpTags + "\"";
-                        cmdLineGeneralOpt[i] += " --tags all:\"" + Utils.escapeName(tmpTags) + "\"";
-                    } else {
-                        cmdLineGeneral[i] += " --tags all:\"" + Utils.escapeQuotes(tmpTags) + "\"";
-                        cmdLineGeneralOpt[i] += " --tags all:\"" + Utils.escapeName(tmpTags) + "\"";
-                    }
-                    break;
+                        if (Utils.isWindows()) {
+                            cmdLineGeneral[i] += " --tags all:\"" + tmpTags + "\"";
+                            cmdLineGeneralOpt[i] += " --tags all:\"" + Utils.escapeName(tmpTags) + "\"";
+                        } else {
+                            cmdLineGeneral[i] += " --tags all:\"" + Utils.escapeQuotes(tmpTags) + "\"";
+                            cmdLineGeneralOpt[i] += " --tags all:\"" + Utils.escapeName(tmpTags) + "\"";
+                        }
+                        break;
                 }
             }
 
             if (chbChapters.isSelected()) {
                 switch (cbChapters.getSelectedIndex()) {
-                case 0:
-                    cmdLineGeneral[i] += " --chapters \"\"";
-                    cmdLineGeneralOpt[i] += " --chapters ''";
-                    break;
-                case 1:
-                    if (txtChapters.getText().trim().isEmpty()) {
+                    case 0:
                         cmdLineGeneral[i] += " --chapters \"\"";
                         cmdLineGeneralOpt[i] += " --chapters ''";
-                    } else {
-                        if (Utils.isWindows()) {
-                            cmdLineGeneral[i] += " --chapters \"" + txtChapters.getText() + "\"";
-                            cmdLineGeneralOpt[i] += " --chapters \"" + Utils.escapeName(txtChapters.getText()) + "\"";
+                        break;
+                    case 1:
+                        if (txtChapters.getText().trim().isEmpty()) {
+                            cmdLineGeneral[i] += " --chapters \"\"";
+                            cmdLineGeneralOpt[i] += " --chapters ''";
                         } else {
-                            cmdLineGeneral[i] += " --chapters \"" + Utils.escapeQuotes(txtChapters.getText()) + "\"";
-                            cmdLineGeneralOpt[i] += " --chapters \"" + Utils.escapeName(txtChapters.getText()) + "\"";
+                            if (Utils.isWindows()) {
+                                cmdLineGeneral[i] += " --chapters \"" + txtChapters.getText() + "\"";
+                                cmdLineGeneralOpt[i] += " --chapters \"" + Utils.escapeName(txtChapters.getText())
+                                        + "\"";
+                            } else {
+                                cmdLineGeneral[i] += " --chapters \"" + Utils.escapeQuotes(txtChapters.getText())
+                                        + "\"";
+                                cmdLineGeneralOpt[i] += " --chapters \"" + Utils.escapeName(txtChapters.getText())
+                                        + "\"";
+                            }
                         }
-                    }
-                    break;
-                case 2:
-                    String tmpChaps = Utils.getPathWithoutExt((String) modelFiles.get(i)) + txtChapters.getText()
-                            + cbExtChapters.getSelectedItem();
+                        break;
+                    case 2:
+                        String tmpChaps = Utils.getPathWithoutExt(modelFiles.get(i)) + txtChapters.getText()
+                                + cbExtChapters.getSelectedItem();
 
-                    if (Utils.isWindows()) {
-                        cmdLineGeneral[i] += " --chapters \"" + tmpChaps + "\"";
-                        cmdLineGeneralOpt[i] += " --chapters \"" + Utils.escapeName(tmpChaps) + "\"";
-                    } else {
-                        cmdLineGeneral[i] += " --chapters \"" + Utils.escapeQuotes(tmpChaps) + "\"";
-                        cmdLineGeneralOpt[i] += " --chapters \"" + Utils.escapeName(tmpChaps) + "\"";
-                    }
-                    break;
+                        if (Utils.isWindows()) {
+                            cmdLineGeneral[i] += " --chapters \"" + tmpChaps + "\"";
+                            cmdLineGeneralOpt[i] += " --chapters \"" + Utils.escapeName(tmpChaps) + "\"";
+                        } else {
+                            cmdLineGeneral[i] += " --chapters \"" + Utils.escapeQuotes(tmpChaps) + "\"";
+                            cmdLineGeneralOpt[i] += " --chapters \"" + Utils.escapeName(tmpChaps) + "\"";
+                        }
+                        break;
                 }
             }
 
@@ -4158,7 +4470,7 @@ public class JMkvpropedit {
                     start++;
                 }
 
-                newTitle = newTitle.replace("{file_name}", Utils.getFileNameWithoutExt((String) modelFiles.get(i)));
+                newTitle = newTitle.replace("{file_name}", Utils.getFileNameWithoutExt(modelFiles.get(i)));
 
                 cmdLineGeneral[i] += " --set title=\"" + Utils.escapeQuotes(newTitle) + "\"";
                 cmdLineGeneralOpt[i] += " --set title=\"" + Utils.escapeName(newTitle) + "\"";
@@ -4197,7 +4509,7 @@ public class JMkvpropedit {
                         tmpCmdLineVideo[j] += " --edit track:v" + (j + 1);
                         tmpCmdLineVideoOpt[j] += " --edit track:v" + (j + 1);
                     }
-                    
+
                     if (chbEnableVideo[j].isSelected()) {
                         tmpCmdLineVideo[j] += " --set flag-enabled=";
                         tmpCmdLineVideoOpt[j] += " --set flag-enabled=";
@@ -4284,8 +4596,8 @@ public class JMkvpropedit {
                     numStartVideo[i]++;
                 }
 
-                tmpText = tmpText.replace("{file_name}", Utils.getFileNameWithoutExt((String) modelFiles.get(j)));
-                tmpText2 = tmpText2.replace("{file_name}", Utils.getFileNameWithoutExt((String) modelFiles.get(j)));
+                tmpText = tmpText.replace("{file_name}", Utils.getFileNameWithoutExt(modelFiles.get(j)));
+                tmpText2 = tmpText2.replace("{file_name}", Utils.getFileNameWithoutExt(modelFiles.get(j)));
 
                 cmdLineVideo[j] += tmpText;
                 cmdLineVideoOpt[j] += tmpText2;
@@ -4333,7 +4645,7 @@ public class JMkvpropedit {
 
                         editCount++;
                     }
-                    
+
                     if (chbDefaultAudio[j].isSelected()) {
                         tmpCmdLineAudio[j] += " --set flag-default=";
                         tmpCmdLineAudioOpt[j] += " --set flag-default=";
@@ -4405,8 +4717,8 @@ public class JMkvpropedit {
                     numStartAudio[i]++;
                 }
 
-                tmpText = tmpText.replace("{file_name}", Utils.getFileNameWithoutExt((String) modelFiles.get(j)));
-                tmpText2 = tmpText2.replace("{file_name}", Utils.getFileNameWithoutExt((String) modelFiles.get(j)));
+                tmpText = tmpText.replace("{file_name}", Utils.getFileNameWithoutExt(modelFiles.get(j)));
+                tmpText2 = tmpText2.replace("{file_name}", Utils.getFileNameWithoutExt(modelFiles.get(j)));
 
                 cmdLineAudio[j] += tmpText;
                 cmdLineAudioOpt[j] += tmpText2;
@@ -4439,7 +4751,7 @@ public class JMkvpropedit {
                         tmpCmdLineSubtitle[j] += " --edit track:s" + (j + 1);
                         tmpCmdLineSubtitleOpt[j] += " --edit track:s" + (j + 1);
                     }
-                    
+
                     if (chbEnableSubtitle[j].isSelected()) {
                         tmpCmdLineSubtitle[j] += " --set flag-enabled=";
                         tmpCmdLineSubtitleOpt[j] += " --set flag-enabled=";
@@ -4528,8 +4840,8 @@ public class JMkvpropedit {
                     numStartSubtitle[i]++;
                 }
 
-                tmpText = tmpText.replace("{file_name}", Utils.getFileNameWithoutExt((String) modelFiles.get(j)));
-                tmpText2 = tmpText2.replace("{file_name}", Utils.getFileNameWithoutExt((String) modelFiles.get(j)));
+                tmpText = tmpText.replace("{file_name}", Utils.getFileNameWithoutExt(modelFiles.get(j)));
+                tmpText2 = tmpText2.replace("{file_name}", Utils.getFileNameWithoutExt(modelFiles.get(j)));
 
                 cmdLineSubtitle[j] += tmpText;
                 cmdLineSubtitleOpt[j] += tmpText2;
@@ -4662,12 +4974,12 @@ public class JMkvpropedit {
 
                 if (Utils.isWindows()) {
                     cmdLineBatch.add("\"" + txtMkvPropExe.getText() + "\" \"" + modelFiles.get(i) + "\"" + cmdLineAll);
-                    cmdLineBatchOpt.add("\"" + Utils.escapeName((String) modelFiles.get(i)) + "\"" + cmdLineAllOpt);
+                    cmdLineBatchOpt.add("\"" + Utils.escapeName(modelFiles.get(i)) + "\"" + cmdLineAllOpt);
                 } else {
                     cmdLineBatch.add("\"" + Utils.escapeQuotes(txtMkvPropExe.getText()) + "\" " + "\""
-                            + Utils.escapeQuotes((String) modelFiles.get(i)) + "\"" + cmdLineAll);
+                            + Utils.escapeQuotes(modelFiles.get(i)) + "\"" + cmdLineAll);
 
-                    cmdLineBatchOpt.add("\"" + Utils.escapeName((String) modelFiles.get(i)) + "\"" + cmdLineAllOpt);
+                    cmdLineBatchOpt.add("\"" + Utils.escapeName(modelFiles.get(i)) + "\"" + cmdLineAllOpt);
                 }
             }
         }
@@ -4706,6 +5018,11 @@ public class JMkvpropedit {
                             curLine++;
                         }
                         optFilePW.println("]");
+                        optFilePW.flush();
+                        optFilePW.close();
+
+                        ProcessBuilder pb = new ProcessBuilder(txtMkvPropExe.getText(), "@options.json");
+                        pb.redirectErrorStream(true);
 
                         optFilePW.flush();
                         optFilePW.close();
@@ -4809,39 +5126,75 @@ public class JMkvpropedit {
     /* Start of INI configuration file methods */
 
     private void readIniFile() {
-        Ini ini = null;
-
-        if (iniFile.exists()) {
+        if (!iniFile.exists()) {
             try {
-                ini = new Ini(iniFile);
-                String exePath = ini.get("General", "mkvpropedit");
-
-                if (exePath != null) {
-                    if (exePath.equals("mkvpropedit")) {
-                        chbMkvPropExeDef.setSelected(true);
-                        chbMkvPropExeDef.setEnabled(false);
-                    } else {
-                        txtMkvPropExe.setText(exePath);
-                        chbMkvPropExeDef.setSelected(false);
-                        chbMkvPropExeDef.setEnabled(true);
-                    }
-                }
-            } catch (InvalidFileFormatException e) {
-
+                iniFile.createNewFile();
             } catch (IOException e) {
-
+                e.printStackTrace();
             }
-        } else if (Utils.isWindows()) {
-            String exePath = getMkvPropExeDefaullt();
+
+            if (Utils.isWindows()) {
+                String exePath = getMkvPropExeDefaullt();
+                if (exePath != null) {
+                    saveIniFile(new File(exePath));
+                    txtMkvPropExe.setText(exePath);
+                    chbMkvPropExeDef.setSelected(false);
+                    chbMkvPropExeDef.setEnabled(true);
+                }
+            } else {
+                defaultIniFile();
+            }
+        }
+
+        try {
+            Ini ini = new Ini(iniFile);
+            profileManager = new ProfileManager(ini);
+
+            String exePath = ini.get("General", "mkvpropedit");
 
             if (exePath != null) {
-                txtMkvPropExe.setText(exePath);
-                chbMkvPropExeDef.setSelected(false);
-                chbMkvPropExeDef.setEnabled(true);
-                saveIniFile(new File(exePath));
+                if (exePath.equals("mkvpropedit")) {
+                    chbMkvPropExeDef.setSelected(true);
+                    chbMkvPropExeDef.setEnabled(false);
+                } else {
+                    txtMkvPropExe.setText(exePath);
+                    chbMkvPropExeDef.setSelected(false);
+                    chbMkvPropExeDef.setEnabled(true);
+                }
+            }
+        } catch (InvalidFileFormatException e) {
+        } catch (IOException e) {
+        }
+
+        loadProfilesToModel();
+    }
+
+    private void loadProfilesToModel() {
+        if (profileManager == null)
+            return;
+        loadProfileModel(modelAudioProfiles, ProfileType.AUDIO);
+        loadProfileModel(modelVideoProfiles, ProfileType.VIDEO);
+        loadProfileModel(modelSubtitleProfiles, ProfileType.SUBTITLE);
+    }
+
+    private void loadProfileModel(DefaultListModel<TrackProfile> model, ProfileType type) {
+        if (model != null) {
+            model.clear();
+            for (TrackProfile p : profileManager.getProfiles(type)) {
+                model.addElement(p);
             }
         }
     }
+
+    // ... (INI methods skipped, keeping them as they are not selected in this range
+    // usually unless I select them)
+    // Wait, the selection started at 4786 which is INSIDE readIniFile?
+    // No, 4786 is loadProfilesToModel.
+    // I need to be careful with range. 4786 is loadProfilesToModel.
+    // 4796 is saveIniFile.
+    // I should only replace specific methods.
+
+    // Let's replace loadProfilesToModel first.
 
     private void saveIniFile(File exeFile) {
         Ini ini = null;
@@ -4957,5 +5310,533 @@ public class JMkvpropedit {
     }
 
     /* End of file methods */
+
+    private void applyAudioProfile(TrackProfile p, int trackIdx) {
+        if (p == null || trackIdx < 0 || trackIdx >= MAX_STREAMS)
+            return;
+
+        chbEditAudio[trackIdx].setSelected(true);
+        // Force refresh state for controls
+        boolean alreadyEnabled = chbDefaultAudio[trackIdx].isEnabled();
+        if (!alreadyEnabled) {
+            toggleAudio(trackIdx);
+        }
+
+        chbEnableAudio[trackIdx].setSelected(p.isUseEnableTrack());
+        if (p.isEnableTrack())
+            rbYesEnableAudio[trackIdx].setSelected(true);
+        else
+            rbNoEnableAudio[trackIdx].setSelected(true);
+
+        // Trigger enable state update
+        boolean isEnable = chbEnableAudio[trackIdx].isSelected();
+        rbYesEnableAudio[trackIdx].setEnabled(isEnable);
+        rbNoEnableAudio[trackIdx].setEnabled(isEnable);
+
+        chbDefaultAudio[trackIdx].setSelected(p.isUseDefaultTrack());
+        if (p.isDefaultTrack())
+            rbYesDefAudio[trackIdx].setSelected(true);
+        else
+            rbNoDefAudio[trackIdx].setSelected(true);
+
+        // Trigger enable state update
+        boolean isDef = chbDefaultAudio[trackIdx].isSelected();
+        rbYesDefAudio[trackIdx].setEnabled(isDef);
+        rbNoDefAudio[trackIdx].setEnabled(isDef);
+
+        chbForcedAudio[trackIdx].setSelected(p.isUseForcedTrack());
+        if (p.isForcedTrack())
+            rbYesForcedAudio[trackIdx].setSelected(true);
+        else
+            rbNoForcedAudio[trackIdx].setSelected(true);
+
+        // Trigger enable state update
+        boolean isForced = chbForcedAudio[trackIdx].isSelected();
+        rbYesForcedAudio[trackIdx].setEnabled(isForced);
+        rbNoForcedAudio[trackIdx].setEnabled(isForced);
+
+        chbNameAudio[trackIdx].setSelected(p.isUseName());
+        txtNameAudio[trackIdx].setText(p.getTrackName() == null ? "" : p.getTrackName());
+        txtNameAudio[trackIdx].setEnabled(p.isUseName());
+        chbNumbAudio[trackIdx].setEnabled(p.isUseName());
+
+        if (p.getLanguage() != null && !p.getLanguage().isEmpty()) {
+            cbLangAudio[trackIdx].setSelectedItem(p.getLanguage());
+        }
+        chbLangAudio[trackIdx].setSelected(p.isUseLanguage());
+        cbLangAudio[trackIdx].setEnabled(p.isUseLanguage());
+    }
+
+    private void applyVideoProfile(TrackProfile p, int trackIdx) {
+        if (p == null || trackIdx < 0 || trackIdx >= MAX_STREAMS)
+            return;
+
+        chbEditVideo[trackIdx].setSelected(true);
+        boolean alreadyEnabled = chbDefaultVideo[trackIdx].isEnabled();
+        if (!alreadyEnabled) {
+            toggleVideo(trackIdx);
+        }
+
+        chbEnableVideo[trackIdx].setSelected(p.isUseEnableTrack());
+        if (p.isEnableTrack())
+            rbYesEnableVideo[trackIdx].setSelected(true);
+        else
+            rbNoEnableVideo[trackIdx].setSelected(true);
+
+        // Trigger enable state update
+        boolean isEnable = chbEnableVideo[trackIdx].isSelected();
+        rbYesEnableVideo[trackIdx].setEnabled(isEnable);
+        rbNoEnableVideo[trackIdx].setEnabled(isEnable);
+
+        chbDefaultVideo[trackIdx].setSelected(p.isUseDefaultTrack());
+        if (p.isDefaultTrack())
+            rbYesDefVideo[trackIdx].setSelected(true);
+        else
+            rbNoDefVideo[trackIdx].setSelected(true);
+
+        // Trigger enable state update
+        boolean isDef = chbDefaultVideo[trackIdx].isSelected();
+        rbYesDefVideo[trackIdx].setEnabled(isDef);
+        rbNoDefVideo[trackIdx].setEnabled(isDef);
+
+        chbForcedVideo[trackIdx].setSelected(p.isUseForcedTrack());
+        if (p.isForcedTrack())
+            rbYesForcedVideo[trackIdx].setSelected(true);
+        else
+            rbNoForcedVideo[trackIdx].setSelected(true);
+
+        // Trigger enable state update
+        boolean isForced = chbForcedVideo[trackIdx].isSelected();
+        rbYesForcedVideo[trackIdx].setEnabled(isForced);
+        rbNoForcedVideo[trackIdx].setEnabled(isForced);
+
+        chbNameVideo[trackIdx].setSelected(p.isUseName());
+        txtNameVideo[trackIdx].setText(p.getTrackName() == null ? "" : p.getTrackName());
+        txtNameVideo[trackIdx].setEnabled(p.isUseName());
+        chbNumbVideo[trackIdx].setEnabled(p.isUseName());
+        // Handling nested enable state for numbering if needed, but simple enable is
+        // sufficient for now
+
+        if (p.getLanguage() != null && !p.getLanguage().isEmpty()) {
+            cbLangVideo[trackIdx].setSelectedItem(p.getLanguage());
+        }
+        chbLangVideo[trackIdx].setSelected(p.isUseLanguage());
+        cbLangVideo[trackIdx].setEnabled(p.isUseLanguage());
+    }
+
+    private void applySubtitleProfile(TrackProfile p, int trackIdx) {
+        if (p == null || trackIdx < 0 || trackIdx >= MAX_STREAMS)
+            return;
+
+        chbEditSubtitle[trackIdx].setSelected(true);
+        // Force refresh state for controls
+        // Using direct enable check as toggleSubtitle might not be standard logic but
+        // consistent with others
+        boolean alreadyEnabled = chbDefaultSubtitle[trackIdx].isEnabled();
+        // Assuming toggleSubtitle works or controls are enabled by listener
+        if (!alreadyEnabled) {
+            // Simulate toggle since we can't find method easily or trigger listener
+            // Actually, chbEditSubtitle has an action listener that calls toggleSubtitle
+            // (presumably)
+            // Let's just manually enable the top level if needed, but firing the button
+            // click might be safer if we knew it works
+            // For consistency with other methods, we assume a similar toggle exists or
+            // manual enablement
+            // Let's rely on manual setEnabled for sub-components if toggle is missing
+            // BUT, the existing code called toggleAudio/Video.
+            // I'll assume toggleSubtitle exists or I will just set enabled states directly
+            // below.
+
+            // Update: chbEditSubtitle listeners are usually added in init.
+            // If toggleSubtitle is not available, we should enable components manually.
+            // However, for safety in this refactor, I will copy the pattern.
+
+            // Manually enabling core checkboxes to be safe
+            chbEnableSubtitle[trackIdx].setEnabled(true);
+            chbDefaultSubtitle[trackIdx].setEnabled(true);
+            chbForcedSubtitle[trackIdx].setEnabled(true);
+            chbNameSubtitle[trackIdx].setEnabled(true);
+            chbLangSubtitle[trackIdx].setEnabled(true);
+        }
+
+        chbEnableSubtitle[trackIdx].setSelected(p.isUseEnableTrack());
+        if (p.isEnableTrack())
+            rbYesEnableSubtitle[trackIdx].setSelected(true);
+        else
+            rbNoEnableSubtitle[trackIdx].setSelected(true);
+
+        boolean isEnable = chbEnableSubtitle[trackIdx].isSelected();
+        rbYesEnableSubtitle[trackIdx].setEnabled(isEnable);
+        rbNoEnableSubtitle[trackIdx].setEnabled(isEnable);
+
+        chbDefaultSubtitle[trackIdx].setSelected(p.isUseDefaultTrack());
+        if (p.isDefaultTrack())
+            rbYesDefSubtitle[trackIdx].setSelected(true);
+        else
+            rbNoDefSubtitle[trackIdx].setSelected(true);
+
+        boolean isDef = chbDefaultSubtitle[trackIdx].isSelected();
+        rbYesDefSubtitle[trackIdx].setEnabled(isDef);
+        rbNoDefSubtitle[trackIdx].setEnabled(isDef);
+
+        chbForcedSubtitle[trackIdx].setSelected(p.isUseForcedTrack());
+        if (p.isForcedTrack())
+            rbYesForcedSubtitle[trackIdx].setSelected(true);
+        else
+            rbNoForcedSubtitle[trackIdx].setSelected(true);
+
+        boolean isForced = chbForcedSubtitle[trackIdx].isSelected();
+        rbYesForcedSubtitle[trackIdx].setEnabled(isForced);
+        rbNoForcedSubtitle[trackIdx].setEnabled(isForced);
+
+        chbNameSubtitle[trackIdx].setSelected(p.isUseName());
+        txtNameSubtitle[trackIdx].setText(p.getTrackName() == null ? "" : p.getTrackName());
+        txtNameSubtitle[trackIdx].setEnabled(p.isUseName());
+        chbNumbSubtitle[trackIdx].setEnabled(p.isUseName());
+
+        if (p.getLanguage() != null && !p.getLanguage().isEmpty()) {
+            cbLangSubtitle[trackIdx].setSelectedItem(p.getLanguage());
+        }
+        chbLangSubtitle[trackIdx].setSelected(p.isUseLanguage());
+        cbLangSubtitle[trackIdx].setEnabled(p.isUseLanguage());
+    }
+
+    private void toggleAudio(int trackIdx) {
+        if (trackIdx < 0 || trackIdx >= MAX_STREAMS)
+            return;
+
+        boolean isEdit = chbEditAudio[trackIdx].isSelected();
+
+        chbEnableAudio[trackIdx].setEnabled(isEdit);
+        chbDefaultAudio[trackIdx].setEnabled(isEdit);
+        chbForcedAudio[trackIdx].setEnabled(isEdit);
+        chbNameAudio[trackIdx].setEnabled(isEdit);
+        chbLangAudio[trackIdx].setEnabled(isEdit);
+        chbExtraCmdAudio[trackIdx].setEnabled(isEdit);
+
+        if (txtNameAudio[trackIdx].isEnabled() || chbNameAudio[trackIdx].isSelected()) {
+            txtNameAudio[trackIdx].setEnabled(isEdit && chbNameAudio[trackIdx].isSelected());
+            chbNumbAudio[trackIdx].setEnabled(isEdit && chbNameAudio[trackIdx].isSelected());
+
+            if (chbNumbAudio[trackIdx].isSelected()) {
+                boolean isNumb = isEdit && chbNameAudio[trackIdx].isSelected();
+                lblNumbStartAudio[trackIdx].setEnabled(isNumb);
+                txtNumbStartAudio[trackIdx].setEnabled(isNumb);
+                lblNumbPadAudio[trackIdx].setEnabled(isNumb);
+                txtNumbPadAudio[trackIdx].setEnabled(isNumb);
+                lblNumbExplainAudio[trackIdx].setEnabled(isNumb);
+            }
+        }
+
+        if (rbNoEnableAudio[trackIdx].isEnabled() || chbEnableAudio[trackIdx].isSelected()) {
+            boolean isEnable = isEdit && chbEnableAudio[trackIdx].isSelected();
+            rbNoEnableAudio[trackIdx].setEnabled(isEnable);
+            rbYesEnableAudio[trackIdx].setEnabled(isEnable);
+        }
+
+        if (rbNoDefAudio[trackIdx].isEnabled() || chbDefaultAudio[trackIdx].isSelected()) {
+            boolean isDef = isEdit && chbDefaultAudio[trackIdx].isSelected();
+            rbNoDefAudio[trackIdx].setEnabled(isDef);
+            rbYesDefAudio[trackIdx].setEnabled(isDef);
+        }
+
+        if (rbNoForcedAudio[trackIdx].isEnabled() || chbForcedAudio[trackIdx].isSelected()) {
+            boolean isForced = isEdit && chbForcedAudio[trackIdx].isSelected();
+            rbNoForcedAudio[trackIdx].setEnabled(isForced);
+            rbYesForcedAudio[trackIdx].setEnabled(isForced);
+        }
+
+        if (cbLangAudio[trackIdx].isEnabled() || chbLangAudio[trackIdx].isSelected()) {
+            cbLangAudio[trackIdx].setEnabled(isEdit && chbLangAudio[trackIdx].isSelected());
+        }
+
+        if (txtExtraCmdAudio[trackIdx].isEnabled() || chbExtraCmdAudio[trackIdx].isSelected()) {
+            boolean isExtra = isEdit && chbExtraCmdAudio[trackIdx].isSelected();
+            // chbExtraCmdAudio is already linked to isEdit above
+            txtExtraCmdAudio[trackIdx].setEnabled(isExtra);
+        }
+    }
+
+    private void toggleVideo(int trackIdx) {
+        if (trackIdx < 0 || trackIdx >= MAX_STREAMS)
+            return;
+
+        boolean isEdit = chbEditVideo[trackIdx].isSelected();
+
+        chbEnableVideo[trackIdx].setEnabled(isEdit);
+        chbDefaultVideo[trackIdx].setEnabled(isEdit);
+        chbForcedVideo[trackIdx].setEnabled(isEdit);
+        chbNameVideo[trackIdx].setEnabled(isEdit);
+        chbLangVideo[trackIdx].setEnabled(isEdit);
+        chbExtraCmdVideo[trackIdx].setEnabled(isEdit);
+
+        if (txtNameVideo[trackIdx].isEnabled() || chbNameVideo[trackIdx].isSelected()) {
+            txtNameVideo[trackIdx].setEnabled(isEdit && chbNameVideo[trackIdx].isSelected());
+            chbNumbVideo[trackIdx].setEnabled(isEdit && chbNameVideo[trackIdx].isSelected());
+
+            if (chbNumbVideo[trackIdx].isSelected()) {
+                boolean isNumb = isEdit && chbNameVideo[trackIdx].isSelected();
+                lblNumbStartVideo[trackIdx].setEnabled(isNumb);
+                txtNumbStartVideo[trackIdx].setEnabled(isNumb);
+                lblNumbPadVideo[trackIdx].setEnabled(isNumb);
+                txtNumbPadVideo[trackIdx].setEnabled(isNumb);
+                lblNumbExplainVideo[trackIdx].setEnabled(isNumb);
+            }
+        }
+
+        if (rbNoEnableVideo[trackIdx].isEnabled() || chbEnableVideo[trackIdx].isSelected()) {
+            boolean isEnable = isEdit && chbEnableVideo[trackIdx].isSelected();
+            rbNoEnableVideo[trackIdx].setEnabled(isEnable);
+            rbYesEnableVideo[trackIdx].setEnabled(isEnable);
+        }
+
+        if (rbNoDefVideo[trackIdx].isEnabled() || chbDefaultVideo[trackIdx].isSelected()) {
+            boolean isDef = isEdit && chbDefaultVideo[trackIdx].isSelected();
+            rbNoDefVideo[trackIdx].setEnabled(isDef);
+            rbYesDefVideo[trackIdx].setEnabled(isDef);
+        }
+
+        if (rbNoForcedVideo[trackIdx].isEnabled() || chbForcedVideo[trackIdx].isSelected()) {
+            boolean isForced = isEdit && chbForcedVideo[trackIdx].isSelected();
+            rbNoForcedVideo[trackIdx].setEnabled(isForced);
+            rbYesForcedVideo[trackIdx].setEnabled(isForced);
+        }
+
+        if (cbLangVideo[trackIdx].isEnabled() || chbLangVideo[trackIdx].isSelected()) {
+            cbLangVideo[trackIdx].setEnabled(isEdit && chbLangVideo[trackIdx].isSelected());
+        }
+
+        if (txtExtraCmdVideo[trackIdx].isEnabled() || chbExtraCmdVideo[trackIdx].isSelected()) {
+            boolean isExtra = isEdit && chbExtraCmdVideo[trackIdx].isSelected();
+            // chbExtraCmdVideo is already linked to isEdit above
+            txtExtraCmdVideo[trackIdx].setEnabled(isExtra);
+        }
+    }
+
+    private JPanel createProfilePanel(ProfileType type, JList<TrackProfile> list, DefaultListModel<TrackProfile> model,
+            java.util.function.Supplier<Integer> getSelectedTrackIndex,
+            java.util.function.BiConsumer<TrackProfile, Integer> updateFromUI,
+            java.util.function.BiConsumer<TrackProfile, Integer> applyToUI) {
+        JPanel pnl = new JPanel();
+        pnl.setBorder(new javax.swing.border.TitledBorder(null, LanguageManager.getString("profile.panel.title"),
+                javax.swing.border.TitledBorder.LEADING,
+                javax.swing.border.TitledBorder.TOP, null, null));
+        pnl.setLayout(new BorderLayout(0, 0));
+        pnl.setPreferredSize(new Dimension(180, 0));
+
+        list.setModel(model);
+        list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        list.setDragEnabled(true);
+        list.setDropMode(javax.swing.DropMode.INSERT);
+        list.setTransferHandler(new javax.swing.TransferHandler() {
+            private static final long serialVersionUID = 1L;
+            private int draggedIndex = -1;
+
+            @Override
+            public int getSourceActions(javax.swing.JComponent c) {
+                return MOVE;
+            }
+
+            @Override
+            protected java.awt.datatransfer.Transferable createTransferable(javax.swing.JComponent c) {
+                draggedIndex = list.getSelectedIndex();
+                if (draggedIndex != -1) {
+                    return new java.awt.datatransfer.StringSelection(String.valueOf(draggedIndex));
+                }
+                return null;
+            }
+
+            @Override
+            public boolean canImport(TransferSupport support) {
+                return support.isDataFlavorSupported(java.awt.datatransfer.DataFlavor.stringFlavor);
+            }
+
+            @Override
+            public boolean importData(TransferSupport support) {
+                if (!canImport(support)) {
+                    return false;
+                }
+
+                JList.DropLocation dl = (JList.DropLocation) support.getDropLocation();
+                int dropIndex = dl.getIndex();
+
+                if (draggedIndex < 0 || draggedIndex >= model.getSize()) {
+                    return false;
+                }
+
+                if (dropIndex == draggedIndex || dropIndex == draggedIndex + 1) {
+                    return false; // No movement needed
+                }
+
+                TrackProfile draggedProfile = model.get(draggedIndex);
+                model.remove(draggedIndex);
+
+                // Adjust drop index if we removed an element before it
+                if (dropIndex > draggedIndex) {
+                    dropIndex--;
+                }
+
+                model.add(dropIndex, draggedProfile);
+                list.setSelectedIndex(dropIndex);
+
+                // Update the profile manager order
+                profileManager.reorderProfiles(type, model);
+
+                return true;
+            }
+
+            @Override
+            protected void exportDone(javax.swing.JComponent source, java.awt.datatransfer.Transferable data,
+                    int action) {
+                draggedIndex = -1;
+            }
+        });
+
+        list.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int idx = list.getSelectedIndex();
+                    if (idx != -1) {
+                        int trackIdx = getSelectedTrackIndex.get();
+                        if (trackIdx != -1) {
+                            applyToUI.accept(model.get(idx), trackIdx);
+                        }
+                    }
+                }
+            }
+        });
+
+        JScrollPane sp = new JScrollPane(list);
+        pnl.add(sp, BorderLayout.CENTER);
+
+        JPanel pnlControls = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 5));
+        pnl.add(pnlControls, BorderLayout.SOUTH);
+
+        JButton btnAdd = new JButton("");
+        btnAdd.setIcon(new ImageIcon(JMkvpropedit.class.getResource("/res/list-add.png")));
+        btnAdd.setToolTipText(LanguageManager.getString("profile.add.tooltip"));
+        btnAdd.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                String name = JOptionPane.showInputDialog(frmJMkvpropedit,
+                        LanguageManager.getString("profile.add.prompt"));
+                if (name != null && !name.trim().isEmpty()) {
+                    int idx = getSelectedTrackIndex.get();
+                    if (idx < 0) {
+                        JOptionPane.showMessageDialog(frmJMkvpropedit,
+                                LanguageManager.getString("profile.error.select.track"));
+                        return;
+                    }
+
+                    TrackProfile p = new TrackProfile();
+                    p.setName(name);
+                    updateFromUI.accept(p, idx);
+
+                    profileManager.addProfile(type, p);
+                    model.addElement(p);
+                }
+            }
+        });
+        pnlControls.add(btnAdd);
+
+        JButton btnUpdate = new JButton(LanguageManager.getString("profile.btn.update"));
+        btnUpdate.setToolTipText(LanguageManager.getString("profile.update.tooltip"));
+        btnUpdate.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                int idx = list.getSelectedIndex();
+                if (idx != -1) {
+                    int trackIdx = getSelectedTrackIndex.get();
+                    if (trackIdx < 0) {
+                        JOptionPane.showMessageDialog(frmJMkvpropedit,
+                                LanguageManager.getString("profile.error.select.track"));
+                        return;
+                    }
+
+                    int response = JOptionPane.showConfirmDialog(frmJMkvpropedit,
+                            LanguageManager.getString("profile.update.confirm"),
+                            LanguageManager.getString("profile.update.title"),
+                            JOptionPane.YES_NO_OPTION);
+
+                    if (response == JOptionPane.YES_OPTION) {
+                        TrackProfile p = model.get(idx);
+                        updateFromUI.accept(p, trackIdx);
+
+                        profileManager.saveProfiles();
+                        list.repaint();
+                    }
+                }
+            }
+        });
+        pnlControls.add(btnUpdate);
+
+        JButton btnRename = new JButton(LanguageManager.getString("profile.btn.rename"));
+        btnRename.setToolTipText(LanguageManager.getString("profile.rename.tooltip"));
+        btnRename.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                int idx = list.getSelectedIndex();
+                if (idx != -1) {
+                    TrackProfile p = model.get(idx);
+                    String newName = JOptionPane.showInputDialog(frmJMkvpropedit,
+                            LanguageManager.getString("profile.rename.prompt"),
+                            p.getName());
+                    if (newName != null && !newName.trim().isEmpty()) {
+                        p.setName(newName);
+                        profileManager.saveProfiles();
+                        list.repaint();
+                    }
+                }
+            }
+        });
+        pnlControls.add(btnRename);
+
+        JButton btnRemove = new JButton("");
+        btnRemove.setIcon(new ImageIcon(JMkvpropedit.class.getResource("/res/list-remove.png")));
+        btnRemove.setToolTipText(LanguageManager.getString("profile.remove.tooltip"));
+        btnRemove.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                int idx = list.getSelectedIndex();
+                if (idx != -1) {
+                    profileManager.removeProfile(type, idx);
+                    model.remove(idx);
+                }
+            }
+        });
+        pnlControls.add(btnRemove);
+
+        return pnl;
+    }
+
+    @SuppressWarnings("deprecation")
+    private void loadLanguage() {
+        if (iniFile.exists()) {
+            try {
+                Ini ini = new Ini(iniFile);
+                String lang = ini.get("General", "language");
+                if (lang != null && !lang.isEmpty()) {
+                    LanguageManager.setLocale(new Locale(lang));
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void saveLanguage(String langCode) {
+        try {
+            if (!iniFile.exists()) {
+                iniFile.createNewFile();
+            }
+            Ini ini = new Ini(iniFile);
+            ini.put("General", "language", langCode);
+            // Preserve mkvpropedit path if it exists
+            String exePath = txtMkvPropExe.getText();
+            if (exePath != null && !exePath.isEmpty() && !"mkvpropedit".equals(exePath)) {
+                ini.put("General", "mkvpropedit", exePath);
+            }
+            ini.store();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
 }

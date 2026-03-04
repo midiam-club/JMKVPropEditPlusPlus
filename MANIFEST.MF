@@ -1,0 +1,2 @@
+Main-Class: io.github.brunorex.JMkvpropedit
+Class-Path: lib/commons-io/commons-io-2.11.0.jar lib/ini4j/ini4j-0.5.4.jar

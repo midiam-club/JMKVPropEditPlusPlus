@@ -78,7 +78,7 @@ public class JTextComponentBinding implements Binding {
 	public void put(IValidatable bean) {
 		try {
 			String s = BeanUtils.getProperty(bean, _property);
-			// XXX displays zeros as blank
+
 			_textComponent.setText(s != null && !s.equals("0") ? s : "");
 		} catch (Exception e) {
 			throw new BindingException(e);
@@ -92,7 +92,7 @@ public class JTextComponentBinding implements Binding {
 			throw new BindingException(e);
 		}
 	}
-	
+
 	public void markValid() {
 		_textComponent.setBackground(_validColor);
 		_textComponent.requestFocusInWindow();
@@ -101,7 +101,7 @@ public class JTextComponentBinding implements Binding {
 	public void markInvalid() {
 		_textComponent.setBackground(Binding.INVALID_COLOR);
 	}
-	
+
 	public void setEnabled(boolean enabled) {
 		_textComponent.setEnabled(enabled);
 	}

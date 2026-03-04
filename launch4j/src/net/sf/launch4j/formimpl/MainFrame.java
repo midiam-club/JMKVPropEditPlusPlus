@@ -104,7 +104,7 @@ public class MainFrame extends JFrame {
 		setGlassPane(new GlassPane(this));
 		_fileChooser.setFileFilter(new FileChooserFilter(
 				Messages.getString("MainFrame.config.files"),
-				new String[] {".xml", ".cfg"}));
+				new String[] { ".xml", ".cfg" }));
 
 		_toolBar = new JToolBar();
 		_toolBar.setFloatable(false);
@@ -139,9 +139,9 @@ public class MainFrame extends JFrame {
 				fr.width, fr.height);
 		setVisible(true);
 	}
-	
+
 	private ImageIcon getLocalIcon(String iconPath) {
-		return  new ImageIcon(MainFrame.class.getClassLoader().getResource(iconPath));
+		return new ImageIcon(MainFrame.class.getClassLoader().getResource(iconPath));
 	}
 
 	private JButton addButton(Icon icon, String tooltip, ActionListener l) {
@@ -151,23 +151,23 @@ public class MainFrame extends JFrame {
 		_toolBar.add(b);
 		return b;
 	}
-	
+
 	public void info(String text) {
-		JOptionPane.showMessageDialog(this, 
-									text,
-									Main.getName(),
-									JOptionPane.INFORMATION_MESSAGE);
+		JOptionPane.showMessageDialog(this,
+				text,
+				Main.getName(),
+				JOptionPane.INFORMATION_MESSAGE);
 	}
 
 	public void warn(String text) {
-		JOptionPane.showMessageDialog(this, 
-									text,
-									Main.getName(),
-									JOptionPane.WARNING_MESSAGE);
+		JOptionPane.showMessageDialog(this,
+				text,
+				Main.getName(),
+				JOptionPane.WARNING_MESSAGE);
 	}
 
 	public void warn(InvariantViolationException e) {
-		Binding b = e.getBinding(); 
+		Binding b = e.getBinding();
 		if (b != null) {
 			b.markInvalid();
 		}
@@ -217,7 +217,7 @@ public class MainFrame extends JFrame {
 
 	private void showConfigName(File config) {
 		setTitle(Main.getName() + " - " + (config != null ? config.getName()
-						: Messages.getString("MainFrame.untitled")));
+				: Messages.getString("MainFrame.untitled")));
 	}
 
 	private void setRunEnabled(boolean enabled) {
@@ -259,11 +259,10 @@ public class MainFrame extends JFrame {
 	private class OpenActionListener implements ActionListener {
 		public void actionPerformed(ActionEvent e) {
 			try {
-				if (canDiscardChanges() && _fileChooser.showOpenDialog(MainFrame.this)
-									== JOptionPane.YES_OPTION) {
-					final File f = _fileChooser.getSelectedFile(); 
+				if (canDiscardChanges() && _fileChooser.showOpenDialog(MainFrame.this) == JOptionPane.YES_OPTION) {
+					final File f = _fileChooser.getSelectedFile();
 					if (f.getPath().endsWith(".xml")) {
-						ConfigPersister.getInstance().load(f);	
+						ConfigPersister.getInstance().load(f);
 						_saved = true;
 					} else {
 						ConfigPersister.getInstance().loadVersion1(f);
@@ -280,13 +279,13 @@ public class MainFrame extends JFrame {
 			}
 		}
 	}
-	
+
 	private class SaveActionListener implements ActionListener {
 		public void actionPerformed(ActionEvent e) {
 			save();
 		}
 	}
-	
+
 	private class BuildActionListener implements ActionListener {
 		public void actionPerformed(ActionEvent e) {
 			final Log log = Log.getSwingLog(_configForm.getLogTextArea());
@@ -300,9 +299,9 @@ public class MainFrame extends JFrame {
 				Builder b = new Builder(log);
 				_outfile = b.build();
 				setRunEnabled(ConfigPersister.getInstance().getConfig().isGuiApplication()
-						// TODO fix console app test
+
 						&& (Util.WINDOWS_OS || !ConfigPersister.getInstance()
-												.getConfig().isDontWrapJar()));
+								.getConfig().isDontWrapJar()));
 			} catch (InvariantViolationException ex) {
 				setRunEnabled(false);
 				ex.setBinding(_configForm.getBinding(ex.getProperty()));
@@ -313,7 +312,7 @@ public class MainFrame extends JFrame {
 			}
 		}
 	}
-	
+
 	private class RunActionListener implements ActionListener {
 		public void actionPerformed(ActionEvent e) {
 			try {
@@ -335,7 +334,7 @@ public class MainFrame extends JFrame {
 					}
 				});
 			} catch (Exception ex) {
-				// XXX errors logged by exec
+
 			} finally {
 				getGlassPane().setVisible(false);
 			}

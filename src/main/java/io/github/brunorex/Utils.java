@@ -30,7 +30,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.text.DecimalFormat;
-import java.text.NumberFormat;
+
+import java.util.Locale;
 
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
@@ -43,33 +44,21 @@ import javax.swing.text.JTextComponent;
 
 public class Utils {
 
+    private static final String OS_NAME = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+    private static final String ESCAPED_QUOTES_PLACEHOLDER = "####escaped__quotes#####";
+
     /* Start of OS detection functions */
 
     public static boolean isWindows() {
-        String OS = System.getProperty("os.name");
-
-        if (OS.toLowerCase().startsWith("windows"))
-            return true;
-        else
-            return false;
+        return OS_NAME.startsWith("windows");
     }
 
     public static boolean isMac() {
-        String OS = System.getProperty("os.name");
-
-        if (OS.toLowerCase().startsWith("mac"))
-            return true;
-        else
-            return false;
+        return OS_NAME.startsWith("mac");
     }
 
     public static boolean isLinux() {
-        String OS = System.getProperty("os.name");
-
-        if (OS.toLowerCase().startsWith("linux"))
-            return true;
-        else
-            return false;
+        return OS_NAME.startsWith("linux");
     }
 
     /* End of OS detection functions */
@@ -77,32 +66,26 @@ public class Utils {
     /* Start of escaping functions */
 
     public static String escapeName(String name) {
-        if (!name.isEmpty()) {
-            name = name.replace("\"", "####escaped__quotes#####"); // lol
-            name = name.replace("\\", "\\\\");
+        if (name != null && !name.isEmpty()) {
+            return name.replace("\"", ESCAPED_QUOTES_PLACEHOLDER)
+                    .replace("\\", "\\\\");
         }
-
-        return name;
+        return name == null ? "" : name;
     }
 
     public static String escapeQuotes(String text) {
-        text = text.replace("\"", "\\\"");
-
-        return text;
+        return text == null ? "" : text.replace("\"", "\\\"");
     }
 
     public static String escapeBackslashes(String text) {
-        text = text.replace("\\", "\\\\");
-
-        return text;
+        return text == null ? "" : text.replace("\\", "\\\\");
     }
 
     public static String fixEscapedQuotes(String text) {
-        if (!text.isEmpty()) {
-            text = text.replace("####escaped__quotes#####", "\\\"");
+        if (text != null && !text.isEmpty()) {
+            return text.replace(ESCAPED_QUOTES_PLACEHOLDER, "\\\"");
         }
-
-        return text;
+        return text == null ? "" : text;
     }
 
     /* End of escaping functions */
@@ -116,17 +99,19 @@ public class Utils {
         JPopupMenu rightClickMenu = new JPopupMenu();
 
         JMenuItem copyMenuItem = new JMenuItem(text.getActionMap().get(DefaultEditorKit.copyAction));
-
         JMenuItem cutMenuItem = new JMenuItem(text.getActionMap().get(DefaultEditorKit.cutAction));
-
         JMenuItem pasteMenuItem = new JMenuItem(text.getActionMap().get(DefaultEditorKit.pasteAction));
-
         JMenuItem selectAllMenuItem = new JMenuItem(text.getActionMap().get(DefaultEditorKit.selectAllAction));
 
-        copyMenuItem.setText("Copy");
-        cutMenuItem.setText("Cut");
-        pasteMenuItem.setText("Paste");
-        selectAllMenuItem.setText("Select All");
+        // Ensure actions have text
+        if (copyMenuItem.getText() == null || copyMenuItem.getText().isEmpty())
+            copyMenuItem.setText("Copy");
+        if (cutMenuItem.getText() == null || cutMenuItem.getText().isEmpty())
+            cutMenuItem.setText("Cut");
+        if (pasteMenuItem.getText() == null || pasteMenuItem.getText().isEmpty())
+            pasteMenuItem.setText("Paste");
+        if (selectAllMenuItem.getText() == null || selectAllMenuItem.getText().isEmpty())
+            selectAllMenuItem.setText("Select All");
 
         rightClickMenu.add(copyMenuItem);
         rightClickMenu.add(cutMenuItem);
@@ -134,18 +119,22 @@ public class Utils {
         rightClickMenu.addSeparator();
         rightClickMenu.add(selectAllMenuItem);
 
-        if (text.getText().isEmpty()) {
+        boolean hasText = text.getText() != null && !text.getText().isEmpty();
+        boolean hasSelection = selStart != selEnd;
+
+        if (!hasText) {
             copyMenuItem.setEnabled(false);
             selectAllMenuItem.setEnabled(false);
             cutMenuItem.setEnabled(false);
         }
 
-        if (selStart == selEnd) {
+        if (!hasSelection) {
             copyMenuItem.setEnabled(false);
             cutMenuItem.setEnabled(false);
         }
 
-        if ((selStart + selEnd) == text.getText().length()) {
+        // Disable "Select All" if everything is already selected
+        if (hasText && (selEnd - selStart) == text.getText().length()) {
             selectAllMenuItem.setEnabled(false);
         }
 
@@ -172,67 +161,71 @@ public class Utils {
     /* End of right-click menu code */
 
     public static String padNumber(int pad, int number) {
-        NumberFormat formatter = new DecimalFormat("0");
-
         if (pad > 0) {
-            String n = "";
-            for (int i = 0; i < pad; i++) {
-                n += 0;
-            }
-            formatter = new DecimalFormat(n);
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < pad; i++)
+                sb.append('0');
+            DecimalFormat formatter = new DecimalFormat(sb.toString());
+            return formatter.format(number);
         }
-
-        return formatter.format(number);
+        return String.valueOf(number);
     }
 
     public static int getDotIndex(String file) {
+        if (file == null)
+            return -1;
         int dotIndex = file.lastIndexOf(".");
-
-        if (dotIndex != -1)
-            return dotIndex;
-        else
-            return file.length();
+        return dotIndex != -1 ? dotIndex : file.length();
     }
 
     public static int getSeparatorIndex(String file) {
-        int sepIndex = file.lastIndexOf(File.separator);
-
-        if (sepIndex != -1)
-            return sepIndex + 1;
-        else
+        if (file == null)
             return 0;
+        int sepIndex = file.lastIndexOf(File.separator);
+        return sepIndex != -1 ? sepIndex + 1 : 0;
     }
 
     public static String getFileNameWithoutExt(String file) {
-        return file.substring(getSeparatorIndex(file), getDotIndex(file));
+        if (file == null)
+            return "";
+        int start = getSeparatorIndex(file);
+        int end = getDotIndex(file);
+        // Fix for when dot appears in path but not in filename (no extension)
+        if (end < start)
+            end = file.length();
+        return file.substring(start, end);
     }
 
     public static String getPathWithoutExt(String file) {
-        return file.substring(0, getDotIndex(file));
+        if (file == null)
+            return "";
+        int end = getDotIndex(file);
+        // Fix for when dot appears in path but not in filename (no extension)
+        // If end < separator index, it means the last dot was in a directory name
+        if (end < getSeparatorIndex(file))
+            end = file.length();
+
+        return file.substring(0, end);
     }
 
     /**
      * http://niravjavadeveloper.blogspot.com/2011/05/resize-jtable-columns.html
      */
     public static void adjustColumnPreferredWidths(JTable table) {
-        // strategy - get max width for cells in column and
-        // make that the preferred width
         TableColumnModel columnModel = table.getColumnModel();
         for (int col = 0; col < table.getColumnCount(); col++) {
             int maxwidth = 0;
 
             for (int row = 0; row < table.getRowCount(); row++) {
                 TableCellRenderer rend = table.getCellRenderer(row, col);
-
-                Object value = table.getValueAt(row, col) + "   ";
+                Object value = table.getValueAt(row, col);
 
                 Component comp = rend.getTableCellRendererComponent(table, value, false, false, row, col);
-
                 maxwidth = Math.max(comp.getPreferredSize().width, maxwidth);
             }
 
             TableColumn column = columnModel.getColumn(col);
-            column.setPreferredWidth(maxwidth);
+            column.setPreferredWidth(maxwidth + 10); // Added padding
         }
     }
 }

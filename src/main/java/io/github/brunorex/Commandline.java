@@ -18,8 +18,9 @@
 
 package io.github.brunorex;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.StringTokenizer;
-import java.util.Vector;
 
 /*
  * Original code from Apache Ant (org.apache.tools.ant.types.Commandline)
@@ -49,55 +50,53 @@ public class Commandline {
         final int inDoubleQuote = 2;
         int state = normal;
         StringTokenizer tok = new StringTokenizer(toProcess, "\"\' ", true);
-        Vector<String> v = new Vector<String>();
-        StringBuffer current = new StringBuffer();
+        List<String> v = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
         boolean lastTokenHasBeenQuoted = false;
 
         while (tok.hasMoreTokens()) {
             String nextTok = tok.nextToken();
             switch (state) {
-            case inQuote:
-                if ("\'".equals(nextTok)) {
-                    lastTokenHasBeenQuoted = true;
-                    state = normal;
-                } else {
-                    current.append(nextTok);
-                }
-                break;
-            case inDoubleQuote:
-                if ("\"".equals(nextTok)) {
-                    lastTokenHasBeenQuoted = true;
-                    state = normal;
-                } else {
-                    current.append(nextTok);
-                }
-                break;
-            default:
-                if ("\'".equals(nextTok)) {
-                    state = inQuote;
-                } else if ("\"".equals(nextTok)) {
-                    state = inDoubleQuote;
-                } else if (" ".equals(nextTok)) {
-                    if (lastTokenHasBeenQuoted || current.length() != 0) {
-                        v.addElement(current.toString());
-                        current = new StringBuffer();
+                case inQuote:
+                    if ("\'".equals(nextTok)) {
+                        lastTokenHasBeenQuoted = true;
+                        state = normal;
+                    } else {
+                        current.append(nextTok);
                     }
-                } else {
-                    current.append(nextTok);
-                }
-                lastTokenHasBeenQuoted = false;
-                break;
+                    break;
+                case inDoubleQuote:
+                    if ("\"".equals(nextTok)) {
+                        lastTokenHasBeenQuoted = true;
+                        state = normal;
+                    } else {
+                        current.append(nextTok);
+                    }
+                    break;
+                default:
+                    if ("\'".equals(nextTok)) {
+                        state = inQuote;
+                    } else if ("\"".equals(nextTok)) {
+                        state = inDoubleQuote;
+                    } else if (" ".equals(nextTok)) {
+                        if (lastTokenHasBeenQuoted || current.length() != 0) {
+                            v.add(current.toString());
+                            current = new StringBuilder();
+                        }
+                    } else {
+                        current.append(nextTok);
+                    }
+                    lastTokenHasBeenQuoted = false;
+                    break;
             }
         }
         if (lastTokenHasBeenQuoted || current.length() != 0) {
-            v.addElement(current.toString());
+            v.add(current.toString());
         }
         /*
          * if (state == inQuote || state == inDoubleQuote) { throw new
          * BuildException("unbalanced quotes in " + toProcess); }
          */
-        String[] args = new String[v.size()];
-        v.copyInto(args);
-        return args;
+        return v.toArray(new String[0]);
     }
 }

@@ -1,0 +1,1 @@
+launch4j: This application requires a Java Runtime Environment 1.8.0
