@@ -105,7 +105,7 @@ import org.ini4j.InvalidFileFormatException;
 
 public class JMkvpropedit {
 
-    private static final String VERSION_NUMBER = "v1.4.0";
+    private static final String VERSION_NUMBER = "v2.0.0";
     private static final int MAX_STREAMS = 200;
     private static final Logger LOGGER = Logger.getLogger(JMkvpropedit.class.getName());
     private static String[] argsArray;
@@ -5883,14 +5883,13 @@ public class JMkvpropedit {
         return pnl;
     }
 
-    @SuppressWarnings("deprecation")
     private void loadLanguage() {
         if (iniFile.exists()) {
             try {
                 Ini ini = new Ini(iniFile);
                 String lang = ini.get("General", "language");
                 if (lang != null && !lang.isEmpty()) {
-                    LanguageManager.setLocale(new Locale(lang));
+                    LanguageManager.setLocale(Locale.of(lang));
                 }
             } catch (Exception e) {
                 e.printStackTrace();

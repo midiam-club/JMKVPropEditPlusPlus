@@ -1,7 +1,7 @@
 <launch4jConfig>
   <dontWrapJar>true</dontWrapJar>
   <headerType>gui</headerType>
-  <jar>../../target/jmkvpropedit-1.5.2.jar</jar>
+  <jar>../../target/jmkvpropedit-2.0.0.jar</jar>
   <outfile>../../JMkvpropedit.exe</outfile>
   <errTitle></errTitle>
   <cmdLine></cmdLine>
@@ -15,7 +15,7 @@
   <icon>java.ico</icon>
   <jre>
     <path>%JAVA_HOME%;%PATH%</path>
-    <minVersion>8</minVersion>
+    <minVersion>21</minVersion>
     <maxVersion></maxVersion>
   </jre>
 </launch4jConfig>

@@ -39,13 +39,8 @@ public class InputValidator {
     public static void validateMkvFile(File file) throws MkvPropeditException {
         validateFileExists(file);
         String name = file.getName().toLowerCase();
-        boolean valid = false;
-        for (String ext : VALID_MKV_EXTENSIONS) {
-            if (name.endsWith(ext)) {
-                valid = true;
-                break;
-            }
-        }
+        boolean valid = java.util.Arrays.stream(VALID_MKV_EXTENSIONS)
+                .anyMatch(name::endsWith);
         if (!valid) {
             throw new MkvPropeditException(ErrorCode.INVALID_FILE_FORMAT, file.getName());
         }
@@ -87,14 +82,9 @@ public class InputValidator {
             String pathEnv = System.getenv("PATH");
             if (pathEnv != null) {
                 String[] paths = pathEnv.split(File.pathSeparator);
-                boolean found = false;
-                for (String path : paths) {
-                    File check = new File(path, Utils.isWindows() ? "mkvpropedit.exe" : "mkvpropedit");
-                    if (check.exists() && check.canExecute()) {
-                        found = true;
-                        break;
-                    }
-                }
+                boolean found = java.util.Arrays.stream(paths)
+                        .map(path -> new File(path, Utils.isWindows() ? "mkvpropedit.exe" : "mkvpropedit"))
+                        .anyMatch(check -> check.exists() && check.canExecute());
                 if (!found) {
                     throw new MkvPropeditException(ErrorCode.MKVPROPEDIT_NOT_FOUND, executablePath);
                 }

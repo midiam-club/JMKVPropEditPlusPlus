@@ -201,21 +201,12 @@ public class TrackControls {
         StringBuilder sbOpt = new StringBuilder();
         int editCount = 0;
 
-        String prefix;
-        switch (type) {
-            case VIDEO:
-                prefix = "v";
-                break;
-            case AUDIO:
-                prefix = "a";
-                break;
-            case SUBTITLE:
-                prefix = "s";
-                break;
-            default:
-                prefix = "";
-                break;
-        }
+        // Java 21: switch expression
+        String prefix = switch (type) {
+            case VIDEO -> "v";
+            case AUDIO -> "a";
+            case SUBTITLE -> "s";
+        };
 
         sbCmd.append(" --edit track:").append(prefix).append(trackIndex);
         sbOpt.append(" --edit track:").append(prefix).append(trackIndex);

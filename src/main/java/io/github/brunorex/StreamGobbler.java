@@ -31,12 +31,7 @@ public class StreamGobbler extends Thread {
                 text.append(lineToAppend);
 
                 // Use invokeLater for scrolling to ensure EDT safety
-                SwingUtilities.invokeLater(new Runnable() {
-                    @Override
-                    public void run() {
-                        text.setCaretPosition(text.getDocument().getLength());
-                    }
-                });
+                SwingUtilities.invokeLater(() -> text.setCaretPosition(text.getDocument().getLength()));
             }
         } catch (IOException e) {
             text.append(e.toString() + "\n");
