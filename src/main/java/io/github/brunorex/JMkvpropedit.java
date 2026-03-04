@@ -58,6 +58,8 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.swing.AbstractButton;
 import javax.swing.Box;
@@ -103,8 +105,9 @@ import org.ini4j.InvalidFileFormatException;
 
 public class JMkvpropedit {
 
-    private static final String VERSION_NUMBER = "v1.3.0";
+    private static final String VERSION_NUMBER = "v1.4.0";
     private static final int MAX_STREAMS = 200;
+    private static final Logger LOGGER = Logger.getLogger(JMkvpropedit.class.getName());
     private static String[] argsArray;
 
     private Process proc = null;
@@ -116,20 +119,27 @@ public class JMkvpropedit {
     private File iniFile = new File("JMkvpropedit.ini");
     private static final MkvStrings mkvStrings = new MkvStrings();
 
-    private JFileChooser chooser = new JFileChooser(System.getProperty("user.home")) {
-        private static final long serialVersionUID = 1L;
+    private JFileChooser chooser; // Lazy initialization for faster startup
 
-        @Override
-        public void approveSelection() {
-            if (!super.isMultiSelectionEnabled() || super.getSelectedFiles().length == 1) {
-                if (!this.getSelectedFile().exists()) {
-                    return;
+    private JFileChooser getChooser() {
+        if (chooser == null) {
+            chooser = new JFileChooser(System.getProperty("user.home")) {
+                private static final long serialVersionUID = 1L;
+
+                @Override
+                public void approveSelection() {
+                    if (!super.isMultiSelectionEnabled() || super.getSelectedFiles().length == 1) {
+                        if (!this.getSelectedFile().exists()) {
+                            return;
+                        }
+                    }
+
+                    super.approveSelection();
                 }
-            }
-
-            super.approveSelection();
+            };
         }
-    };
+        return chooser;
+    }
 
     private FileFilter EXE_EXT_FILTER = new FileNameExtensionFilter("Excecutable files (*.exe)", "exe");
 
@@ -196,6 +206,12 @@ public class JMkvpropedit {
     private String[] cmdLineSubtitle = null;
     private String[] cmdLineSubtitleOpt = null;
     private int nSubtitle = 0;
+
+    // IMP-01: Dynamic track controls lists (parallel to fixed arrays during
+    // migration)
+    private final List<TrackControls> videoTrackControls = new ArrayList<>();
+    private final List<TrackControls> audioTrackControls = new ArrayList<>();
+    private final List<TrackControls> subtitleTrackControls = new ArrayList<>();
 
     private String cmdLineAttachmentsAdd = null;
     private String cmdLineAttachmentsAddOpt = null;
@@ -494,8 +510,8 @@ public class JMkvpropedit {
         modelSubtitleProfiles = new DefaultListModel<>();
         listSubtitleProfiles = new JList<>(modelSubtitleProfiles);
 
-        chooser.setDialogType(JFileChooser.OPEN_DIALOG);
-        chooser.setFileHidingEnabled(true);
+        getChooser().setDialogType(JFileChooser.OPEN_DIALOG);
+        getChooser().setFileHidingEnabled(true);
 
         pnlTabs = new JTabbedPane(JTabbedPane.TOP);
         pnlTabs.setBorder(new EmptyBorder(10, 10, 0, 10));
@@ -936,12 +952,14 @@ public class JMkvpropedit {
                         cbVideo.removeItemAt(idx);
                         lyrdPnlVideo.remove(idx);
                         nVideo--;
+                        if (!videoTrackControls.isEmpty())
+                            videoTrackControls.remove(videoTrackControls.size() - 1);
 
                         if (cbVideo.getItemCount() < MAX_STREAMS && !btnAddVideo.isEnabled()) {
                             btnAddVideo.setEnabled(true);
                         }
 
-                        System.gc();
+                        // System.gc() removed — IMP-02: JVM handles GC optimally
                     }
                 }
             }
@@ -1062,12 +1080,14 @@ public class JMkvpropedit {
                         cbAudio.removeItemAt(idx);
                         lyrdPnlAudio.remove(idx);
                         nAudio--;
+                        if (!audioTrackControls.isEmpty())
+                            audioTrackControls.remove(audioTrackControls.size() - 1);
 
                         if (cbAudio.getItemCount() < MAX_STREAMS && !btnAddAudio.isEnabled()) {
                             btnAddAudio.setEnabled(true);
                         }
 
-                        System.gc();
+                        // System.gc() removed — IMP-02: JVM handles GC optimally
                     }
                 }
             }
@@ -1206,12 +1226,14 @@ public class JMkvpropedit {
                         cbSubtitle.removeItemAt(idx);
                         lyrdPnlSubtitle.remove(idx);
                         nSubtitle--;
+                        if (!subtitleTrackControls.isEmpty())
+                            subtitleTrackControls.remove(subtitleTrackControls.size() - 1);
 
                         if (cbSubtitle.getItemCount() < MAX_STREAMS && !btnAddSubtitle.isEnabled()) {
                             btnAddSubtitle.setEnabled(true);
                         }
 
-                        System.gc();
+                        // System.gc() removed — IMP-02: JVM handles GC optimally
                     }
                 }
             }
@@ -2107,17 +2129,17 @@ public class JMkvpropedit {
             public void actionPerformed(ActionEvent e) {
                 File[] files = null;
 
-                chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                chooser.setDialogTitle(LanguageManager.getString("chooser.title.file"));
-                chooser.setMultiSelectionEnabled(true);
-                chooser.setAcceptAllFileFilterUsed(false);
-                chooser.resetChoosableFileFilters();
-                chooser.setFileFilter(MATROSKA_EXT_FILTER);
+                getChooser().setFileSelectionMode(JFileChooser.FILES_ONLY);
+                getChooser().setDialogTitle(LanguageManager.getString("getChooser().title.file"));
+                getChooser().setMultiSelectionEnabled(true);
+                getChooser().setAcceptAllFileFilterUsed(false);
+                getChooser().resetChoosableFileFilters();
+                getChooser().setFileFilter(MATROSKA_EXT_FILTER);
 
-                int open = chooser.showOpenDialog(frmJMkvpropedit);
+                int open = getChooser().showOpenDialog(frmJMkvpropedit);
 
                 if (open == JFileChooser.APPROVE_OPTION) {
-                    files = chooser.getSelectedFiles();
+                    files = getChooser().getSelectedFiles();
                     for (int i = 0; i < files.length; i++) {
                         try {
                             if (!modelFiles.contains(files[i].getCanonicalPath()) && files[i].exists()) {
@@ -2135,14 +2157,14 @@ public class JMkvpropedit {
             public void actionPerformed(ActionEvent e) {
                 File folder = null;
 
-                chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-                chooser.setDialogTitle(LanguageManager.getString("chooser.title.folder"));
-                chooser.setAcceptAllFileFilterUsed(false);
+                getChooser().setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+                getChooser().setDialogTitle(LanguageManager.getString("getChooser().title.folder"));
+                getChooser().setAcceptAllFileFilterUsed(false);
 
-                int open = chooser.showOpenDialog(frmJMkvpropedit);
+                int open = getChooser().showOpenDialog(frmJMkvpropedit);
 
                 if (open == JFileChooser.APPROVE_OPTION) {
-                    folder = chooser.getSelectedFile();
+                    folder = getChooser().getSelectedFile();
                     addMkvFilesFromFolder(folder);
                 }
 
@@ -2353,19 +2375,19 @@ public class JMkvpropedit {
 
         btnBrowseChapters.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                chooser.setDialogTitle(LanguageManager.getString("chooser.title.chapters"));
-                chooser.setMultiSelectionEnabled(false);
-                chooser.setAcceptAllFileFilterUsed(false);
-                chooser.resetChoosableFileFilters();
-                chooser.setFileFilter(TXT_EXT_FILTER);
-                chooser.setFileFilter(XML_EXT_FILTER);
+                getChooser().setFileSelectionMode(JFileChooser.FILES_ONLY);
+                getChooser().setDialogTitle(LanguageManager.getString("getChooser().title.chapters"));
+                getChooser().setMultiSelectionEnabled(false);
+                getChooser().setAcceptAllFileFilterUsed(false);
+                getChooser().resetChoosableFileFilters();
+                getChooser().setFileFilter(TXT_EXT_FILTER);
+                getChooser().setFileFilter(XML_EXT_FILTER);
 
-                int open = chooser.showOpenDialog(frmJMkvpropedit);
+                int open = getChooser().showOpenDialog(frmJMkvpropedit);
 
                 if (open == JFileChooser.APPROVE_OPTION) {
-                    if (chooser.getSelectedFile().exists()) {
-                        txtChapters.setText(chooser.getSelectedFile().toString());
+                    if (getChooser().getSelectedFile().exists()) {
+                        txtChapters.setText(getChooser().getSelectedFile().toString());
                     }
                 }
             }
@@ -2423,19 +2445,19 @@ public class JMkvpropedit {
 
         btnBrowseTags.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                chooser.setDialogTitle(LanguageManager.getString("chooser.title.tags"));
-                chooser.setMultiSelectionEnabled(false);
-                chooser.setAcceptAllFileFilterUsed(false);
-                chooser.resetChoosableFileFilters();
-                chooser.setFileFilter(TXT_EXT_FILTER);
-                chooser.setFileFilter(XML_EXT_FILTER);
+                getChooser().setFileSelectionMode(JFileChooser.FILES_ONLY);
+                getChooser().setDialogTitle(LanguageManager.getString("getChooser().title.tags"));
+                getChooser().setMultiSelectionEnabled(false);
+                getChooser().setAcceptAllFileFilterUsed(false);
+                getChooser().resetChoosableFileFilters();
+                getChooser().setFileFilter(TXT_EXT_FILTER);
+                getChooser().setFileFilter(XML_EXT_FILTER);
 
-                int open = chooser.showOpenDialog(frmJMkvpropedit);
+                int open = getChooser().showOpenDialog(frmJMkvpropedit);
 
                 if (open == JFileChooser.APPROVE_OPTION) {
-                    if (chooser.getSelectedFile().exists()) {
-                        txtTags.setText(chooser.getSelectedFile().toString());
+                    if (getChooser().getSelectedFile().exists()) {
+                        txtTags.setText(getChooser().getSelectedFile().toString());
                     }
                 }
             }
@@ -2458,21 +2480,21 @@ public class JMkvpropedit {
 
         btnBrowseMkvPropExe.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                chooser.setDialogTitle(LanguageManager.getString("chooser.title.exe"));
-                chooser.setMultiSelectionEnabled(false);
-                chooser.setAcceptAllFileFilterUsed(false);
-                chooser.resetChoosableFileFilters();
+                getChooser().setFileSelectionMode(JFileChooser.FILES_ONLY);
+                getChooser().setDialogTitle(LanguageManager.getString("getChooser().title.exe"));
+                getChooser().setMultiSelectionEnabled(false);
+                getChooser().setAcceptAllFileFilterUsed(false);
+                getChooser().resetChoosableFileFilters();
 
                 if (Utils.isWindows()) {
-                    chooser.setFileFilter(EXE_EXT_FILTER);
+                    getChooser().setFileFilter(EXE_EXT_FILTER);
                 }
 
-                int open = chooser.showOpenDialog(frmJMkvpropedit);
+                int open = getChooser().showOpenDialog(frmJMkvpropedit);
 
                 if (open == JFileChooser.APPROVE_OPTION) {
-                    if (chooser.getSelectedFile().exists()) {
-                        saveIniFile(chooser.getSelectedFile());
+                    if (getChooser().getSelectedFile().exists()) {
+                        saveIniFile(getChooser().getSelectedFile());
                     }
                 }
             }
@@ -2557,16 +2579,16 @@ public class JMkvpropedit {
 
         btnBrowseAttachAddFile.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                chooser.setDialogTitle(LanguageManager.getString("chooser.title.attachment"));
-                chooser.setMultiSelectionEnabled(false);
-                chooser.resetChoosableFileFilters();
-                chooser.setAcceptAllFileFilterUsed(true);
+                getChooser().setFileSelectionMode(JFileChooser.FILES_ONLY);
+                getChooser().setDialogTitle(LanguageManager.getString("getChooser().title.attachment"));
+                getChooser().setMultiSelectionEnabled(false);
+                getChooser().resetChoosableFileFilters();
+                getChooser().setAcceptAllFileFilterUsed(true);
 
-                int open = chooser.showOpenDialog(frmJMkvpropedit);
+                int open = getChooser().showOpenDialog(frmJMkvpropedit);
 
                 if (open == JFileChooser.APPROVE_OPTION) {
-                    File f = chooser.getSelectedFile();
+                    File f = getChooser().getSelectedFile();
 
                     if (f.exists()) {
                         try {
@@ -2761,16 +2783,16 @@ public class JMkvpropedit {
 
         btnAttachReplaceNewBrowse.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                chooser.setDialogTitle(LanguageManager.getString("chooser.title.attachment"));
-                chooser.setMultiSelectionEnabled(false);
-                chooser.resetChoosableFileFilters();
-                chooser.setAcceptAllFileFilterUsed(true);
+                getChooser().setFileSelectionMode(JFileChooser.FILES_ONLY);
+                getChooser().setDialogTitle(LanguageManager.getString("getChooser().title.attachment"));
+                getChooser().setMultiSelectionEnabled(false);
+                getChooser().resetChoosableFileFilters();
+                getChooser().setAcceptAllFileFilterUsed(true);
 
-                int open = chooser.showOpenDialog(frmJMkvpropedit);
+                int open = getChooser().showOpenDialog(frmJMkvpropedit);
 
                 if (open == JFileChooser.APPROVE_OPTION) {
-                    File f = chooser.getSelectedFile();
+                    File f = getChooser().getSelectedFile();
 
                     if (f.exists()) {
                         try {
@@ -3575,6 +3597,20 @@ public class JMkvpropedit {
             });
 
             cbVideo.addItem(LanguageManager.getString("track.video.title") + (nVideo + 1));
+
+            // IMP-01: Register TrackControls for this video track
+            videoTrackControls.add(new TrackControls(
+                    TrackControls.TrackType.VIDEO, subPnlVideo[nVideo],
+                    chbEditVideo[nVideo], chbEnableVideo[nVideo],
+                    rbYesEnableVideo[nVideo], rbNoEnableVideo[nVideo], bgRbEnableVideo[nVideo],
+                    chbDefaultVideo[nVideo], rbYesDefVideo[nVideo], rbNoDefVideo[nVideo], bgRbDefVideo[nVideo],
+                    chbForcedVideo[nVideo], rbYesForcedVideo[nVideo], rbNoForcedVideo[nVideo], bgRbForcedVideo[nVideo],
+                    chbNameVideo[nVideo], txtNameVideo[nVideo],
+                    chbNumbVideo[nVideo], lblNumbStartVideo[nVideo], txtNumbStartVideo[nVideo],
+                    lblNumbPadVideo[nVideo], txtNumbPadVideo[nVideo], lblNumbExplainVideo[nVideo],
+                    chbLangVideo[nVideo], cbLangVideo[nVideo],
+                    chbExtraCmdVideo[nVideo], txtExtraCmdVideo[nVideo]));
+
             nVideo++;
         }
     }
@@ -3956,6 +3992,20 @@ public class JMkvpropedit {
             });
 
             cbAudio.addItem(LanguageManager.getString("track.audio.title") + (nAudio + 1));
+
+            // IMP-01: Register TrackControls for this audio track
+            audioTrackControls.add(new TrackControls(
+                    TrackControls.TrackType.AUDIO, subPnlAudio[nAudio],
+                    chbEditAudio[nAudio], chbEnableAudio[nAudio],
+                    rbYesEnableAudio[nAudio], rbNoEnableAudio[nAudio], bgRbEnableAudio[nAudio],
+                    chbDefaultAudio[nAudio], rbYesDefAudio[nAudio], rbNoDefAudio[nAudio], bgRbDefAudio[nAudio],
+                    chbForcedAudio[nAudio], rbYesForcedAudio[nAudio], rbNoForcedAudio[nAudio], bgRbForcedAudio[nAudio],
+                    chbNameAudio[nAudio], txtNameAudio[nAudio],
+                    chbNumbAudio[nAudio], lblNumbStartAudio[nAudio], txtNumbStartAudio[nAudio],
+                    lblNumbPadAudio[nAudio], txtNumbPadAudio[nAudio], lblNumbExplainAudio[nAudio],
+                    chbLangAudio[nAudio], cbLangAudio[nAudio],
+                    chbExtraCmdAudio[nAudio], txtExtraCmdAudio[nAudio]));
+
             nAudio++;
         }
     }
@@ -4365,6 +4415,21 @@ public class JMkvpropedit {
 
             cbSubtitle.addItem(LanguageManager.getString("track.subtitle.title") + (nSubtitle + 1));
         }
+
+        // IMP-01: Register TrackControls for this subtitle track
+        subtitleTrackControls.add(new TrackControls(
+                TrackControls.TrackType.SUBTITLE, subPnlSubtitle[nSubtitle],
+                chbEditSubtitle[nSubtitle], chbEnableSubtitle[nSubtitle],
+                rbYesEnableSubtitle[nSubtitle], rbNoEnableSubtitle[nSubtitle], bgRbEnableSubtitle[nSubtitle],
+                chbDefaultSubtitle[nSubtitle], rbYesDefSubtitle[nSubtitle], rbNoDefSubtitle[nSubtitle],
+                bgRbDefSubtitle[nSubtitle],
+                chbForcedSubtitle[nSubtitle], rbYesForcedSubtitle[nSubtitle], rbNoForcedSubtitle[nSubtitle],
+                bgRbForcedSubtitle[nSubtitle],
+                chbNameSubtitle[nSubtitle], txtNameSubtitle[nSubtitle],
+                chbNumbSubtitle[nSubtitle], lblNumbStartSubtitle[nSubtitle], txtNumbStartSubtitle[nSubtitle],
+                lblNumbPadSubtitle[nSubtitle], txtNumbPadSubtitle[nSubtitle], lblNumbExplainSubtitle[nSubtitle],
+                chbLangSubtitle[nSubtitle], cbLangSubtitle[nSubtitle],
+                chbExtraCmdSubtitle[nSubtitle], txtExtraCmdSubtitle[nSubtitle]));
 
         nSubtitle++;
     }
@@ -4850,8 +4915,8 @@ public class JMkvpropedit {
     }
 
     private void setCmdLineAttachmentsAdd() {
-        cmdLineAttachmentsAdd = "";
-        cmdLineAttachmentsAddOpt = "";
+        StringBuilder sbAdd = new StringBuilder();
+        StringBuilder sbAddOpt = new StringBuilder();
 
         for (int i = 0; i < modelAttachmentsAdd.getRowCount(); i++) {
             String file = modelAttachmentsAdd.getValueAt(i, 0).toString();
@@ -4861,29 +4926,32 @@ public class JMkvpropedit {
 
             if (!name.isEmpty() || !desc.isEmpty() || !mime.isEmpty()) {
                 if (!name.isEmpty()) {
-                    cmdLineAttachmentsAdd += " --attachment-name \"" + name + "\"";
-                    cmdLineAttachmentsAddOpt += " --attachment-name \"" + Utils.escapeName(name) + "\"";
+                    sbAdd.append(" --attachment-name \"").append(name).append("\"");
+                    sbAddOpt.append(" --attachment-name \"").append(Utils.escapeName(name)).append("\"");
                 }
 
                 if (!desc.isEmpty()) {
-                    cmdLineAttachmentsAdd += " --attachment-description \"" + desc + "\"";
-                    cmdLineAttachmentsAddOpt += " --attachment-description \"" + Utils.escapeName(desc) + "\"";
+                    sbAdd.append(" --attachment-description \"").append(desc).append("\"");
+                    sbAddOpt.append(" --attachment-description \"").append(Utils.escapeName(desc)).append("\"");
                 }
 
                 if (!mime.isEmpty()) {
-                    cmdLineAttachmentsAdd += " --attachment-mime-type \"" + mime + "\"";
-                    cmdLineAttachmentsAddOpt += " --attachment-mime-type \"" + Utils.escapeName(mime) + "\"";
+                    sbAdd.append(" --attachment-mime-type \"").append(mime).append("\"");
+                    sbAddOpt.append(" --attachment-mime-type \"").append(Utils.escapeName(mime)).append("\"");
                 }
             }
 
-            cmdLineAttachmentsAdd += " --add-attachment \"" + file + "\"";
-            cmdLineAttachmentsAddOpt += " --add-attachment \"" + Utils.escapeName(file) + "\"";
+            sbAdd.append(" --add-attachment \"").append(file).append("\"");
+            sbAddOpt.append(" --add-attachment \"").append(Utils.escapeName(file)).append("\"");
         }
+
+        cmdLineAttachmentsAdd = sbAdd.toString();
+        cmdLineAttachmentsAddOpt = sbAddOpt.toString();
     }
 
     private void setCmdLineAttachmentsReplace() {
-        cmdLineAttachmentsReplace = "";
-        cmdLineAttachmentsReplaceOpt = "";
+        StringBuilder sbReplace = new StringBuilder();
+        StringBuilder sbReplaceOpt = new StringBuilder();
 
         for (int i = 0; i < modelAttachmentsReplace.getRowCount(); i++) {
             String type = modelAttachmentsReplace.getValueAt(i, 0).toString();
@@ -4895,57 +4963,63 @@ public class JMkvpropedit {
 
             if (!name.isEmpty() || !desc.isEmpty() || !mime.isEmpty()) {
                 if (!name.isEmpty()) {
-                    cmdLineAttachmentsReplace += " --attachment-name \"" + name + "\"";
-                    cmdLineAttachmentsReplaceOpt += " --attachment-name \"" + Utils.escapeName(name) + "\"";
+                    sbReplace.append(" --attachment-name \"").append(name).append("\"");
+                    sbReplaceOpt.append(" --attachment-name \"").append(Utils.escapeName(name)).append("\"");
                 }
 
                 if (!desc.isEmpty()) {
-                    cmdLineAttachmentsReplace += " --attachment-description \"" + desc + "\"";
-                    cmdLineAttachmentsReplaceOpt += " --attachment-description \"" + Utils.escapeName(desc) + "\"";
+                    sbReplace.append(" --attachment-description \"").append(desc).append("\"");
+                    sbReplaceOpt.append(" --attachment-description \"").append(Utils.escapeName(desc)).append("\"");
                 }
 
                 if (!mime.isEmpty()) {
-                    cmdLineAttachmentsReplace += " --attachment-mime-type \"" + mime + "\"";
-                    cmdLineAttachmentsReplaceOpt += " --attachment-mime-type \"" + Utils.escapeName(mime) + "\"";
+                    sbReplace.append(" --attachment-mime-type \"").append(mime).append("\"");
+                    sbReplaceOpt.append(" --attachment-mime-type \"").append(Utils.escapeName(mime)).append("\"");
                 }
-
             }
 
             if (type.equals(rbAttachReplaceName.getText())) {
-                cmdLineAttachmentsReplace += " --replace-attachment \"name:" + orig + ":" + replace + "\"";
-                cmdLineAttachmentsReplaceOpt += " --replace-attachment \"name:" + Utils.escapeName(orig) + ":"
-                        + Utils.escapeName(replace) + "\"";
+                sbReplace.append(" --replace-attachment \"name:").append(orig).append(":").append(replace).append("\"");
+                sbReplaceOpt.append(" --replace-attachment \"name:").append(Utils.escapeName(orig)).append(":")
+                        .append(Utils.escapeName(replace)).append("\"");
             } else if (type.equals(rbAttachReplaceID.getText())) {
-                cmdLineAttachmentsReplace += " --replace-attachment \"" + orig + ":" + replace + "\"";
-                cmdLineAttachmentsReplaceOpt += " --replace-attachment \"" + orig + ":" + Utils.escapeName(replace)
-                        + "\"";
+                sbReplace.append(" --replace-attachment \"").append(orig).append(":").append(replace).append("\"");
+                sbReplaceOpt.append(" --replace-attachment \"").append(orig).append(":")
+                        .append(Utils.escapeName(replace)).append("\"");
             } else {
-                cmdLineAttachmentsReplace += " --replace-attachment \"mime-type:" + orig + ":" + replace + "\"";
-                cmdLineAttachmentsReplaceOpt += " --replace-attachment \"mime-type:" + Utils.escapeName(orig) + ":"
-                        + Utils.escapeName(replace) + "\"";
+                sbReplace.append(" --replace-attachment \"mime-type:").append(orig).append(":").append(replace)
+                        .append("\"");
+                sbReplaceOpt.append(" --replace-attachment \"mime-type:").append(Utils.escapeName(orig)).append(":")
+                        .append(Utils.escapeName(replace)).append("\"");
             }
         }
+
+        cmdLineAttachmentsReplace = sbReplace.toString();
+        cmdLineAttachmentsReplaceOpt = sbReplaceOpt.toString();
     }
 
     private void setCmdLineAttachmentsDelete() {
-        cmdLineAttachmentsDelete = "";
-        cmdLineAttachmentsDeleteOpt = "";
+        StringBuilder sbDelete = new StringBuilder();
+        StringBuilder sbDeleteOpt = new StringBuilder();
 
         for (int i = 0; i < modelAttachmentsDelete.getRowCount(); i++) {
             String type = modelAttachmentsDelete.getValueAt(i, 0).toString();
             String value = modelAttachmentsDelete.getValueAt(i, 1).toString();
 
             if (type.equals(rbAttachDeleteName.getText())) {
-                cmdLineAttachmentsDelete += " --delete-attachment \"name:" + value + "\"";
-                cmdLineAttachmentsDeleteOpt += " --delete-attachment \"name:" + Utils.escapeName(value) + "\"";
+                sbDelete.append(" --delete-attachment \"name:").append(value).append("\"");
+                sbDeleteOpt.append(" --delete-attachment \"name:").append(Utils.escapeName(value)).append("\"");
             } else if (type.equals(rbAttachDeleteID.getText())) {
-                cmdLineAttachmentsDelete += " --delete-attachment \"" + value + "\"";
-                cmdLineAttachmentsDeleteOpt += " --delete-attachment \"" + value + "\"";
+                sbDelete.append(" --delete-attachment \"").append(value).append("\"");
+                sbDeleteOpt.append(" --delete-attachment \"").append(value).append("\"");
             } else {
-                cmdLineAttachmentsDelete += " --delete-attachment \"mime-type:" + value + "\"";
-                cmdLineAttachmentsDeleteOpt += " --delete-attachment \"mime-type:" + Utils.escapeName(value) + "\"";
+                sbDelete.append(" --delete-attachment \"mime-type:").append(value).append("\"");
+                sbDeleteOpt.append(" --delete-attachment \"mime-type:").append(Utils.escapeName(value)).append("\"");
             }
         }
+
+        cmdLineAttachmentsDelete = sbDelete.toString();
+        cmdLineAttachmentsDeleteOpt = sbDeleteOpt.toString();
     }
 
     private void setCmdLine() {
@@ -4996,38 +5070,32 @@ public class JMkvpropedit {
                 btnGenerateCmdLine.setEnabled(false);
 
                 for (int i = 0; i < cmdLineBatch.size(); i++) {
+                    File optFile = null;
                     try {
-                        File optFile = new File("options.json");
-                        PrintWriter optFilePW = new PrintWriter(optFile, "UTF-8");
+                        // IMP-06: Use secure temp file instead of CWD (SEC-04 fix)
+                        optFile = File.createTempFile("jmkvpropedit_opts_", ".json");
+                        optFile.deleteOnExit(); // Safety net
+
                         String[] optFileContents = Commandline.translateCommandline(cmdLineBatchOpt.get(i));
                         int optFileMaxLines = optFileContents.length - 1;
 
-                        if (!optFile.exists()) {
-                            optFile.createNewFile();
+                        try (PrintWriter optFilePW = new PrintWriter(optFile, "UTF-8")) {
+                            optFilePW.println("[");
+                            int curLine = 0;
+                            for (String content : optFileContents) {
+                                content = Utils.fixEscapedQuotes(content);
+
+                                optFilePW.print("  \"" + content + "\"");
+                                if (curLine != optFileMaxLines)
+                                    optFilePW.print(",");
+                                optFilePW.println();
+                                curLine++;
+                            }
+                            optFilePW.println("]");
                         }
 
-                        optFilePW.println("[");
-                        int curLine = 0;
-                        for (String content : optFileContents) {
-                            content = Utils.fixEscapedQuotes(content);
-
-                            optFilePW.print("  \"" + content + "\"");
-                            if (curLine != optFileMaxLines)
-                                optFilePW.print(",");
-                            optFilePW.println();
-                            curLine++;
-                        }
-                        optFilePW.println("]");
-                        optFilePW.flush();
-                        optFilePW.close();
-
-                        ProcessBuilder pb = new ProcessBuilder(txtMkvPropExe.getText(), "@options.json");
-                        pb.redirectErrorStream(true);
-
-                        optFilePW.flush();
-                        optFilePW.close();
-
-                        pb.command(txtMkvPropExe.getText(), "@options.json");
+                        ProcessBuilder pb = new ProcessBuilder(txtMkvPropExe.getText(),
+                                "@" + optFile.getAbsolutePath());
                         pb.redirectErrorStream(true);
 
                         txtOutput.append("File: " + modelFiles.get(i) + "\n");
@@ -5040,16 +5108,19 @@ public class JMkvpropedit {
 
                         proc.waitFor();
 
-                        optFile.delete();
-
                         if (i < cmdLineBatch.size() - 1) {
                             txtOutput.append("--------------\n\n");
                         }
 
                         Thread.sleep(10);
                     } catch (IOException e) {
+                        LOGGER.log(Level.WARNING, "Error executing mkvpropedit for file: " + modelFiles.get(i), e);
                     } catch (InterruptedException e) {
                         break;
+                    } finally {
+                        if (optFile != null && optFile.exists()) {
+                            optFile.delete();
+                        }
                     }
                 }
 
@@ -5163,7 +5234,9 @@ public class JMkvpropedit {
                 }
             }
         } catch (InvalidFileFormatException e) {
+            LOGGER.log(Level.WARNING, "Invalid INI file format: " + iniFile.getPath(), e);
         } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Error reading INI file: " + iniFile.getPath(), e);
         }
 
         loadProfilesToModel();
@@ -5212,7 +5285,9 @@ public class JMkvpropedit {
             ini.put("General", "mkvpropedit", exeFile.toString());
             ini.store();
         } catch (InvalidFileFormatException e1) {
+            LOGGER.log(Level.WARNING, "Invalid INI file format while saving: " + iniFile.getPath(), e1);
         } catch (IOException e1) {
+            LOGGER.log(Level.WARNING, "Error saving INI file: " + iniFile.getPath(), e1);
         }
     }
 
@@ -5230,7 +5305,9 @@ public class JMkvpropedit {
 
             ini.store();
         } catch (InvalidFileFormatException e1) {
+            LOGGER.log(Level.WARNING, "Invalid INI file format while setting defaults: " + iniFile.getPath(), e1);
         } catch (IOException e1) {
+            LOGGER.log(Level.WARNING, "Error writing default INI file: " + iniFile.getPath(), e1);
         }
     }
 
