@@ -108,6 +108,68 @@ public class InputValidator {
     }
 
     /**
+     * Validates that the executable path points to a legitimate mkvpropedit binary.
+     * Rejects paths with traversal sequences, unexpected names, or non-executable files.
+     *
+     * @param executablePath The path to validate
+     * @throws MkvPropeditException if the path is suspicious or invalid
+     */
+    public static void validateMkvpropeditExecutablePath(String executablePath) throws MkvPropeditException {
+        validateMkvpropeditExecutable(executablePath);
+
+        File executable = new File(executablePath);
+        String name = executable.getName().toLowerCase();
+
+        // Reject if name does not contain mkvpropedit
+        if (!name.contains("mkvpropedit")) {
+            throw new MkvPropeditException(ErrorCode.INVALID_PARAMETER,
+                    "Executable name must contain 'mkvpropedit': " + name);
+        }
+
+        // Reject path traversal attempts
+        String path = executable.getPath();
+        validateNoPathTraversal(path);
+    }
+
+    /**
+     * Validates that a string does not contain path traversal sequences or
+     * directory separators that could escape the intended directory.
+     *
+     * @param value The value to validate
+     * @throws MkvPropeditException if path traversal is detected
+     */
+    public static void validateNoPathTraversal(String value) throws MkvPropeditException {
+        if (value == null) {
+            return;
+        }
+        if (value.contains("..") || value.contains("/") || value.contains("\\")) {
+            throw new MkvPropeditException(ErrorCode.INVALID_PARAMETER,
+                    "Path traversal characters not allowed: " + value);
+        }
+    }
+
+    /**
+     * Validates that an extra command string does not contain shell metacharacters
+     * that could be used for command injection.
+     *
+     * @param command The extra command string to validate
+     * @throws MkvPropeditException if dangerous characters are found
+     */
+    public static void validateSafeExtraCommand(String command) throws MkvPropeditException {
+        if (command == null || command.trim().isEmpty()) {
+            return;
+        }
+        // Reject common shell metacharacters
+        String dangerous = ";|&$`<>{}\n\r";
+        for (char c : dangerous.toCharArray()) {
+            if (command.indexOf(c) >= 0) {
+                throw new MkvPropeditException(ErrorCode.INVALID_PARAMETER,
+                        "Dangerous character '" + c + "' not allowed in extra command");
+            }
+        }
+    }
+
+    /**
      * Validates multiple files at once.
      * 
      * @param files The files to validate

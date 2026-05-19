@@ -1,6 +1,7 @@
 package io.github.brunorex;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,6 +10,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.function.Consumer;
 
@@ -38,6 +41,12 @@ public class MkvToolsDownloader extends SwingWorker<File, Integer> {
 
     private static final String MKVPROPEDIT_EXE = "mkvpropedit.exe";
     private static final int BUFFER_SIZE = 8192;
+
+    // Security: SHA-256 of the expected download file.
+    // Set to empty string to skip verification (not recommended).
+    // Update this value when changing LATEST_VERSION.
+    // Obtain the hash from: https://mkvtoolnix.download/windows/releases/<version>/sha256sums.txt
+    private static final String EXPECTED_SHA256 = "";
 
     private final File targetDirectory;
     private final Consumer<String> statusCallback;
@@ -98,6 +107,9 @@ public class MkvToolsDownloader extends SwingWorker<File, Integer> {
                 cleanupTempFile(tempFile);
                 return null;
             }
+
+            // Security: verify downloaded file integrity
+            verifyChecksum(tempFile);
 
             statusCallback.accept(LanguageManager.getString("options.extracting"));
 
@@ -204,6 +216,42 @@ public class MkvToolsDownloader extends SwingWorker<File, Integer> {
         }
 
         throw new IOException("mkvpropedit.exe not found in archive");
+    }
+
+    /**
+     * Verifies the SHA-256 checksum of the downloaded file against the expected hash.
+     *
+     * @param file The file to verify
+     * @throws IOException if the checksum does not match or cannot be computed
+     */
+    private void verifyChecksum(File file) throws IOException {
+        if (EXPECTED_SHA256 == null || EXPECTED_SHA256.isBlank()) {
+            statusCallback.accept("Warning: download checksum verification is disabled");
+            return;
+        }
+
+        try {
+            var digest = MessageDigest.getInstance("SHA-256");
+            try (var in = new FileInputStream(file)) {
+                var buffer = new byte[BUFFER_SIZE];
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) != -1) {
+                    digest.update(buffer, 0, bytesRead);
+                }
+            }
+
+            var sb = new StringBuilder();
+            for (byte b : digest.digest()) {
+                sb.append(String.format("%02x", b));
+            }
+            var actualHash = sb.toString();
+
+            if (!actualHash.equalsIgnoreCase(EXPECTED_SHA256)) {
+                throw new IOException("Checksum mismatch: expected " + EXPECTED_SHA256 + " but got " + actualHash);
+            }
+        } catch (NoSuchAlgorithmException e) {
+            throw new IOException("SHA-256 algorithm not available", e);
+        }
     }
 
     private void cleanupTempFile(File tempFile) {

@@ -5022,6 +5022,55 @@ public class JMkvpropedit {
     }
 
     private void setCmdLine() {
+        // Security: validate executable path before building any command
+        try {
+            InputValidator.validateMkvpropeditExecutablePath(txtMkvPropExe.getText());
+        } catch (MkvPropeditException e) {
+            JOptionPane.showMessageDialog(frmJMkvpropedit, e.getMessage(),
+                    LanguageManager.getString("error.title.security"), JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Security: validate tag/chapter inputs to prevent path traversal
+        try {
+            if (chbTags.isSelected() && cbTags.getSelectedIndex() > 0) {
+                InputValidator.validateNoPathTraversal(txtTags.getText());
+            }
+            if (chbChapters.isSelected() && cbChapters.getSelectedIndex() > 0) {
+                InputValidator.validateNoPathTraversal(txtChapters.getText());
+            }
+        } catch (MkvPropeditException e) {
+            JOptionPane.showMessageDialog(frmJMkvpropedit, e.getMessage(),
+                    LanguageManager.getString("error.title.security"), JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Security: validate extra commands to prevent argument injection
+        try {
+            if (chbExtraCmdGeneral.isSelected()) {
+                InputValidator.validateSafeExtraCommand(txtExtraCmdGeneral.getText());
+            }
+            for (int j = 0; j < nVideo; j++) {
+                if (chbExtraCmdVideo[j].isSelected()) {
+                    InputValidator.validateSafeExtraCommand(txtExtraCmdVideo[j].getText());
+                }
+            }
+            for (int j = 0; j < nAudio; j++) {
+                if (chbExtraCmdAudio[j].isSelected()) {
+                    InputValidator.validateSafeExtraCommand(txtExtraCmdAudio[j].getText());
+                }
+            }
+            for (int j = 0; j < nSubtitle; j++) {
+                if (chbExtraCmdSubtitle[j].isSelected()) {
+                    InputValidator.validateSafeExtraCommand(txtExtraCmdSubtitle[j].getText());
+                }
+            }
+        } catch (MkvPropeditException e) {
+            JOptionPane.showMessageDialog(frmJMkvpropedit, e.getMessage(),
+                    LanguageManager.getString("error.title.security"), JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
         setCmdLineGeneral();
         setCmdLineVideo();
         setCmdLineAudio();
@@ -5181,6 +5230,13 @@ public class JMkvpropedit {
     }
 
     private boolean isExecutableInPath(final String exe) {
+        // Security: reject suspicious executable paths before attempting execution
+        try {
+            InputValidator.validateMkvpropeditExecutablePath(exe);
+        } catch (MkvPropeditException e) {
+            return false;
+        }
+
         worker = new SwingWorker<Void, Void>() {
             @Override
             public Void doInBackground() {
