@@ -54,13 +54,15 @@ public enum FileExtension {
         return filename != null && filename.toLowerCase().endsWith(extension);
     }
 
+    private static final FileExtension[] MATROSKA_EXTENSIONS = { MKV, MKA, MKS, MK3D, WEBM };
+
     /**
      * Gets all Matroska-compatible extensions.
      * 
      * @return Array of Matroska extensions
      */
     public static FileExtension[] getMatroskaExtensions() {
-        return new FileExtension[] { MKV, MKA, MKS, MK3D, WEBM };
+        return MATROSKA_EXTENSIONS.clone();
     }
 
     /**

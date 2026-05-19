@@ -29,7 +29,6 @@ import java.awt.Component;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
-import java.text.DecimalFormat;
 
 import java.util.Locale;
 
@@ -162,11 +161,7 @@ public class Utils {
 
     public static String padNumber(int pad, int number) {
         if (pad > 0) {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < pad; i++)
-                sb.append('0');
-            DecimalFormat formatter = new DecimalFormat(sb.toString());
-            return formatter.format(number);
+            return String.format("%0" + pad + "d", number);
         }
         return String.valueOf(number);
     }

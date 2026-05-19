@@ -10,7 +10,7 @@ import java.util.List;
  */
 public class InputValidator {
 
-    private static final String[] VALID_MKV_EXTENSIONS = { ".mkv", ".mka", ".mks", ".mk3d", ".webm" };
+    private static final List<String> VALID_MKV_EXTENSIONS = List.of(".mkv", ".mka", ".mks", ".mk3d", ".webm");
 
     /**
      * Validates that a file exists and is readable.
@@ -38,9 +38,8 @@ public class InputValidator {
      */
     public static void validateMkvFile(File file) throws MkvPropeditException {
         validateFileExists(file);
-        String name = file.getName().toLowerCase();
-        boolean valid = java.util.Arrays.stream(VALID_MKV_EXTENSIONS)
-                .anyMatch(name::endsWith);
+        var name = file.getName().toLowerCase();
+        var valid = VALID_MKV_EXTENSIONS.stream().anyMatch(name::endsWith);
         if (!valid) {
             throw new MkvPropeditException(ErrorCode.INVALID_FILE_FORMAT, file.getName());
         }
@@ -70,7 +69,7 @@ public class InputValidator {
             throw new MkvPropeditException(ErrorCode.MKVPROPEDIT_NOT_FOUND);
         }
 
-        File executable = new File(executablePath);
+        var executable = new File(executablePath);
 
         // On Windows, also check with .exe extension
         if (!executable.exists() && Utils.isWindows() && !executablePath.toLowerCase().endsWith(".exe")) {
@@ -79,10 +78,10 @@ public class InputValidator {
 
         if (!executable.exists()) {
             // Check if it's in PATH
-            String pathEnv = System.getenv("PATH");
+            var pathEnv = System.getenv("PATH");
             if (pathEnv != null) {
-                String[] paths = pathEnv.split(File.pathSeparator);
-                boolean found = java.util.Arrays.stream(paths)
+                var paths = pathEnv.split(File.pathSeparator);
+                var found = java.util.Arrays.stream(paths)
                         .map(path -> new File(path, Utils.isWindows() ? "mkvpropedit.exe" : "mkvpropedit"))
                         .anyMatch(check -> check.exists() && check.canExecute());
                 if (!found) {

@@ -118,10 +118,10 @@ public class BatchExecutorService {
     }
 
     private String buildJsonOptions(String[] args) {
-        StringBuilder sb = new StringBuilder("[\n");
+        var sb = new StringBuilder("[\n");
         int max = args.length - 1;
         for (int i = 0; i < args.length; i++) {
-            String content = Utils.fixEscapedQuotes(args[i]);
+            var content = Utils.fixEscapedQuotes(args[i]);
             sb.append("  \"").append(content).append("\"");
             if (i != max) {
                 sb.append(",");
