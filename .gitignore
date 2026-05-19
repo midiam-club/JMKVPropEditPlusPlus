@@ -14,3 +14,47 @@
 *.iml
 .idea
 dependency-reduced-pom.xml
+
+# Application runtime files
+/JMkvpropedit.ini
+/JMkvpropedit.exe
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+*.swp
+*.swo
+*~
+
+# Maven
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+!/.mvn/wrapper/maven-wrapper.jar
+
+# Java
+*.class
+*.jar
+!lib/*.jar
+!launch4j/launch4j.jar
+
+# Launch4j demos (not needed in repo)
+/launch4j/demo/
+/launch4j/head/
+/launch4j/skeleton/
+/launch4j/w32api/
+/launch4j/*.exe
+/launch4j/*.jar
+!/launch4j/launch4j.jar
+!/launch4j/launch4jc.exe
+!/launch4j/launch4j.exe
+/launch4j/bin/*.exe
+!/launch4j/bin/ld.exe
+!/launch4j/bin/windres.exe
