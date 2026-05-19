@@ -74,6 +74,9 @@ import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
@@ -472,7 +475,8 @@ public class JMkvpropedit {
             public void run() {
                 try {
                     argsArray = args;
-                    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                    // Apply FlatLaf with system theme detection
+                    applyFlatLafTheme(null);
                     JMkvpropedit window = new JMkvpropedit();
                     window.frmJMkvpropedit.setVisible(true);
                 } catch (Exception e) {
@@ -480,6 +484,52 @@ public class JMkvpropedit {
                 }
             }
         });
+    }
+
+    /**
+     * Applies FlatLaf theme. If theme is null, reads from INI or uses system default.
+     */
+    private static void applyFlatLafTheme(String theme) {
+        try {
+            if (theme == null) {
+                // Try to read from INI
+                File ini = new File("JMkvpropedit.ini");
+                if (ini.exists()) {
+                    Ini iniFile = new Ini(ini);
+                    theme = iniFile.get("General", "theme");
+                }
+            }
+
+            if ("dark".equalsIgnoreCase(theme)) {
+                com.formdev.flatlaf.FlatDarkLaf.setup();
+            } else {
+                // Default to light theme (includes "light" and "system" / unknown)
+                com.formdev.flatlaf.FlatLightLaf.setup();
+            }
+        } catch (Exception e) {
+            // Fallback to system LAF if FlatLaf fails
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Switches the FlatLaf theme at runtime and persists the preference to INI.
+     */
+    private void switchTheme(String theme) {
+        applyFlatLafTheme(theme);
+        com.formdev.flatlaf.FlatLaf.updateUI();
+        // Persist preference
+        try {
+            Ini ini = new Ini(iniFile);
+            ini.put("General", "theme", theme);
+            ini.store();
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to save theme preference", e);
+        }
     }
 
     /**
@@ -499,6 +549,25 @@ public class JMkvpropedit {
         frmJMkvpropedit.setTitle("JMKVPropedit++ " + VERSION_NUMBER);
         frmJMkvpropedit.setBounds(100, 100, 760, 500);
         frmJMkvpropedit.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+
+        // Theme menu
+        JMenuBar menuBar = new JMenuBar();
+        JMenu mnOptions = new JMenu("Options");
+        JMenu mnTheme = new JMenu("Theme");
+        JMenuItem mntmSystem = new JMenuItem("System");
+        JMenuItem mntmLight = new JMenuItem("Light");
+        JMenuItem mntmDark = new JMenuItem("Dark");
+
+        mntmSystem.addActionListener(e -> switchTheme("system"));
+        mntmLight.addActionListener(e -> switchTheme("light"));
+        mntmDark.addActionListener(e -> switchTheme("dark"));
+
+        mnTheme.add(mntmSystem);
+        mnTheme.add(mntmLight);
+        mnTheme.add(mntmDark);
+        mnOptions.add(mnTheme);
+        menuBar.add(mnOptions);
+        frmJMkvpropedit.setJMenuBar(menuBar);
 
         modelAudioProfiles = new DefaultListModel<>();
         listAudioProfiles = new JList<>(modelAudioProfiles);

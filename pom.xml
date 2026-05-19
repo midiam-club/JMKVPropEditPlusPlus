@@ -42,6 +42,11 @@
 			<artifactId>xz</artifactId>
 			<version>1.10</version>
 		</dependency>
+		<dependency>
+			<groupId>com.formdev</groupId>
+			<artifactId>flatlaf</artifactId>
+			<version>3.5.4</version>
+		</dependency>
 	</dependencies>
 
 	<build>
