@@ -112,11 +112,7 @@ public class JMkvpropedit {
     private static final Logger LOGGER = Logger.getLogger(JMkvpropedit.class.getName());
     private static String[] argsArray;
 
-    private Process proc = null;
     private SwingWorker<Void, Void> worker = null;
-    private ProcessBuilder pb = new ProcessBuilder();
-
-    private boolean exeFound = true;
 
     private File iniFile = new File("JMkvpropedit.ini");
     private IniPersistenceService iniService = new IniPersistenceService(iniFile);
@@ -5178,78 +5174,19 @@ public class JMkvpropedit {
                     btnGenerateCmdLine.setEnabled(false);
                 });
 
-                int cores = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
-                java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors
-                        .newFixedThreadPool(cores);
+                java.util.List<String> files = java.util.Collections.list(modelFiles.elements());
+                var executor = new BatchExecutorService(
+                        txtMkvPropExe.getText(), cmdLineBatch, cmdLineBatchOpt, files);
 
-                for (int i = 0; i < cmdLineBatch.size(); i++) {
-                    final int index = i;
-                    executor.submit(() -> {
-                        java.nio.file.Path optFile = null;
-                        try {
-                            optFile = java.nio.file.Files.createTempFile("jmkvpropedit_opts_", ".json");
-                            java.io.File fileForDelete = optFile.toFile();
-                            fileForDelete.deleteOnExit();
+                executor.executeAll(result -> {
+                    StringBuilder outputChunk = new StringBuilder();
+                    outputChunk.append("File: ").append(result.filePath()).append("\n");
+                    outputChunk.append("Command line: ").append(result.commandLine()).append("\n\n");
+                    outputChunk.append(result.output());
+                    outputChunk.append("\n--------------\n\n");
 
-                            String[] optFileContents = Commandline.translateCommandline(cmdLineBatchOpt.get(index));
-                            int optFileMaxLines = optFileContents.length - 1;
-
-                            StringBuilder jsonContent = new StringBuilder("[\n");
-                            int curLine = 0;
-                            for (String content : optFileContents) {
-                                content = Utils.fixEscapedQuotes(content);
-                                jsonContent.append("  \"").append(content).append("\"");
-                                if (curLine != optFileMaxLines)
-                                    jsonContent.append(",");
-                                jsonContent.append("\n");
-                                curLine++;
-                            }
-                            jsonContent.append("]\n");
-
-                            java.nio.file.Files.writeString(optFile, jsonContent.toString(),
-                                    java.nio.charset.StandardCharsets.UTF_8);
-
-                            ProcessBuilder pb = new ProcessBuilder(txtMkvPropExe.getText(),
-                                    "@" + optFile.toAbsolutePath().toString());
-                            pb.redirectErrorStream(true);
-
-                            Process process = pb.start();
-                            String processOutput = new String(process.getInputStream().readAllBytes(),
-                                    java.nio.charset.StandardCharsets.UTF_8);
-                            process.waitFor();
-
-                            StringBuilder outputChunk = new StringBuilder();
-                            outputChunk.append("File: ").append(modelFiles.get(index)).append("\n");
-                            outputChunk.append("Command line: ").append(cmdLineBatch.get(index)).append("\n\n");
-                            outputChunk.append(processOutput);
-                            if (index < cmdLineBatch.size() - 1) {
-                                outputChunk.append("\n--------------\n\n");
-                            }
-
-                            javax.swing.SwingUtilities.invokeLater(() -> txtOutput.append(outputChunk.toString()));
-
-                        } catch (java.io.IOException e) {
-                            LOGGER.log(Level.WARNING, "Error executing mkvpropedit for file: " + modelFiles.get(index),
-                                    e);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        } finally {
-                            if (optFile != null) {
-                                try {
-                                    java.nio.file.Files.deleteIfExists(optFile);
-                                } catch (java.io.IOException ignored) {
-                                }
-                            }
-                        }
-                    });
-                }
-
-                executor.shutdown();
-                try {
-                    executor.awaitTermination(Long.MAX_VALUE, java.util.concurrent.TimeUnit.NANOSECONDS);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
+                    javax.swing.SwingUtilities.invokeLater(() -> txtOutput.append(outputChunk.toString()));
+                });
 
                 return null;
             }
@@ -5296,34 +5233,8 @@ public class JMkvpropedit {
             return false;
         }
 
-        worker = new SwingWorker<Void, Void>() {
-            @Override
-            public Void doInBackground() {
-                try {
-                    pb.command(exe);
-                    pb.redirectErrorStream(true);
-                    proc = pb.start();
-
-                    BufferedReader in = new BufferedReader(new InputStreamReader(proc.getInputStream()));
-                    proc.waitFor();
-                    in.close();
-
-                    exeFound = true;
-                } catch (IOException e) {
-                    exeFound = false;
-                } catch (InterruptedException e) {
-                    exeFound = false;
-                }
-
-                return null;
-            }
-        };
-
-        worker.execute();
-        while (!worker.isDone()) {
-        }
-
-        return exeFound;
+        // Use BatchExecutorService for a non-blocking, EDT-safe check
+        return BatchExecutorService.isExecutableAvailable(exe);
     }
 
     /* End of command line methods */
