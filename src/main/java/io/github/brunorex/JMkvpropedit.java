@@ -119,6 +119,7 @@ public class JMkvpropedit {
     private boolean exeFound = true;
 
     private File iniFile = new File("JMkvpropedit.ini");
+    private IniPersistenceService iniService = new IniPersistenceService(iniFile);
     private static final MkvStrings mkvStrings = new MkvStrings();
 
     private JFileChooser chooser; // Lazy initialization for faster startup
@@ -493,11 +494,7 @@ public class JMkvpropedit {
         try {
             if (theme == null) {
                 // Try to read from INI
-                File ini = new File("JMkvpropedit.ini");
-                if (ini.exists()) {
-                    Ini iniFile = new Ini(ini);
-                    theme = iniFile.get("General", "theme");
-                }
+                theme = new IniPersistenceService(new File("JMkvpropedit.ini")).getTheme(null);
             }
 
             if ("dark".equalsIgnoreCase(theme)) {
@@ -522,14 +519,7 @@ public class JMkvpropedit {
     private void switchTheme(String theme) {
         applyFlatLafTheme(theme);
         com.formdev.flatlaf.FlatLaf.updateUI();
-        // Persist preference
-        try {
-            Ini ini = new Ini(iniFile);
-            ini.put("General", "theme", theme);
-            ini.store();
-        } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Failed to save theme preference", e);
-        }
+        iniService.saveTheme(theme);
     }
 
     /**
@@ -5341,46 +5331,24 @@ public class JMkvpropedit {
     /* Start of INI configuration file methods */
 
     private void readIniFile() {
-        if (!iniFile.exists()) {
-            try {
-                iniFile.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        // Use IniPersistenceService to read/create the INI
+        org.ini4j.Ini ini = iniService.readOrCreateIni();
 
-            if (Utils.isWindows()) {
-                String exePath = getMkvPropExeDefaullt();
-                if (exePath != null) {
-                    saveIniFile(new File(exePath));
-                    txtMkvPropExe.setText(exePath);
-                    chbMkvPropExeDef.setSelected(false);
-                    chbMkvPropExeDef.setEnabled(true);
-                }
-            } else {
-                defaultIniFile();
-            }
-        }
-
-        try {
-            Ini ini = new Ini(iniFile);
+        if (ini != null) {
             profileManager = new ProfileManager(ini);
 
-            String exePath = ini.get("General", "mkvpropedit");
+            String exePath = iniService.getExecutablePath(ini);
 
-            if (exePath != null) {
-                if (exePath.equals("mkvpropedit")) {
-                    chbMkvPropExeDef.setSelected(true);
-                    chbMkvPropExeDef.setEnabled(false);
-                } else {
-                    txtMkvPropExe.setText(exePath);
-                    chbMkvPropExeDef.setSelected(false);
-                    chbMkvPropExeDef.setEnabled(true);
-                }
+            if (exePath.equals("mkvpropedit")) {
+                chbMkvPropExeDef.setSelected(true);
+                chbMkvPropExeDef.setEnabled(false);
+            } else {
+                txtMkvPropExe.setText(exePath);
+                chbMkvPropExeDef.setSelected(false);
+                chbMkvPropExeDef.setEnabled(true);
             }
-        } catch (InvalidFileFormatException e) {
-            LOGGER.log(Level.WARNING, "Invalid INI file format: " + iniFile.getPath(), e);
-        } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Error reading INI file: " + iniFile.getPath(), e);
+        } else {
+            profileManager = null;
         }
 
         loadProfilesToModel();
@@ -5403,72 +5371,22 @@ public class JMkvpropedit {
         }
     }
 
-    // ... (INI methods skipped, keeping them as they are not selected in this range
-    // usually unless I select them)
-    // Wait, the selection started at 4786 which is INSIDE readIniFile?
-    // No, 4786 is loadProfilesToModel.
-    // I need to be careful with range. 4786 is loadProfilesToModel.
-    // 4796 is saveIniFile.
-    // I should only replace specific methods.
-
-    // Let's replace loadProfilesToModel first.
-
+    /**
+     * Persists the executable path and updates the UI accordingly.
+     */
     private void saveIniFile(File exeFile) {
-        Ini ini = null;
-
         txtMkvPropExe.setText(exeFile.toString());
         chbMkvPropExeDef.setSelected(false);
         chbMkvPropExeDef.setEnabled(true);
-
-        try {
-            if (!iniFile.exists()) {
-                iniFile.createNewFile();
-            }
-
-            ini = new Ini(iniFile);
-            ini.put("General", "mkvpropedit", exeFile.toString());
-            ini.store();
-        } catch (InvalidFileFormatException e1) {
-            LOGGER.log(Level.WARNING, "Invalid INI file format while saving: " + iniFile.getPath(), e1);
-        } catch (IOException e1) {
-            LOGGER.log(Level.WARNING, "Error saving INI file: " + iniFile.getPath(), e1);
-        }
+        iniService.saveExecutablePath(exeFile.toString());
     }
 
+    /**
+     * Writes a default INI with "mkvpropedit" as the executable.
+     * Called only when the user explicitly resets to defaults.
+     */
     private void defaultIniFile() {
-        Ini ini = null;
-
-        try {
-            if (!iniFile.exists()) {
-                iniFile.createNewFile();
-            }
-
-            ini = new Ini(iniFile);
-
-            ini.put("General", "mkvpropedit", "mkvpropedit");
-
-            ini.store();
-        } catch (InvalidFileFormatException e1) {
-            LOGGER.log(Level.WARNING, "Invalid INI file format while setting defaults: " + iniFile.getPath(), e1);
-        } catch (IOException e1) {
-            LOGGER.log(Level.WARNING, "Error writing default INI file: " + iniFile.getPath(), e1);
-        }
-    }
-
-    private String getMkvPropExeDefaullt() {
-        String sysDrive = System.getenv("SystemDrive");
-        String exePaths[] = new String[] { sysDrive + "\\Program Files (x86)\\MKVToolNix",
-                sysDrive + "\\Program Files\\MKVToolNix" };
-
-        for (int i = 0; i < exePaths.length; i++) {
-            File tmpExe = new File(exePaths[i] + "\\mkvpropedit.exe");
-
-            if (tmpExe.exists()) {
-                return tmpExe.toString();
-            }
-        }
-
-        return null;
+        iniService.saveExecutablePath("mkvpropedit");
     }
 
     /* End of INI configuration file methods */
