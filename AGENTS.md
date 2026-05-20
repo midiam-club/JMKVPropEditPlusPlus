@@ -110,3 +110,11 @@ The `quality` profile runs JaCoCo, SpotBugs, and OWASP Dependency-Check.
 - `BatchExecutorService.isExecutableAvailable("java")` is a safe cross-platform test.
 - `MkvToolsDownloader.verifyChecksum` is package-private for testing.
 - `IniPersistenceService` tests should avoid backslash paths in INI content because `ini4j` interprets `\` as escape; use forward slashes in test fixtures.
+- **Swing integration tests** (`JMkvpropeditIntegrationTest`) require a graphical environment. They are automatically skipped in headless mode (`java.awt.headless=true`). To run them in CI or headless environments, use a virtual display (Xvfb on Linux) or run locally on Windows/macOS:
+  ```bash
+  # Windows / macOS / Linux with display
+  ./mvnw test
+
+  # Force headless=false explicitly
+  JAVA_TOOL_OPTIONS="-Djava.awt.headless=false" ./mvnw test
+  ```
