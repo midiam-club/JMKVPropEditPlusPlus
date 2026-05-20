@@ -112,6 +112,3 @@ Windows, macOS, and Linux support.
 ## License
 
 See the project's license file for details.
-
----
-*Developed with Vibe Coding*
