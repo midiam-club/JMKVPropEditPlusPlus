@@ -105,6 +105,14 @@ jobs:
           Xvfb :99 -screen 0 1920x1080x24 &
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
 
+      - name: Cache OWASP Dependency-Check NVD database
+        uses: actions/cache@v4
+        with:
+          path: ~/.owasp/dependency-check-data
+          key: owasp-nvd-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            owasp-nvd-${{ runner.os }}-
+
       - name: Make Maven wrapper executable
         run: chmod +x mvnw
 
@@ -112,6 +120,7 @@ jobs:
         run: JAVA_TOOL_OPTIONS="-Djava.awt.headless=false" ./mvnw clean verify -Pquality -B
         env:
           JAVA_TOOL_OPTIONS: "-Djava.awt.headless=false"
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')

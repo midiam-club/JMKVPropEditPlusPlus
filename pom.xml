@@ -286,6 +286,7 @@
 							</suppressionFiles>
 							<failOnError>false</failOnError>
 							<ossIndexAnalyzerEnabled>false</ossIndexAnalyzerEnabled>
+							<nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
 						</configuration>
 						<executions>
 							<execution>
