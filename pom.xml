@@ -21,7 +21,7 @@
 		<exec-maven-plugin.version>3.5.0</exec-maven-plugin.version>
 		<jsign-maven-plugin.version>6.0</jsign-maven-plugin.version>
 		<junit-jupiter.version>5.12.2</junit-jupiter.version>
-		<mockito.version>5.17.0</mockito.version>
+		<mockito.version>5.23.0</mockito.version>
 		<spotbugs.version>4.9.3.0</spotbugs.version>
 		<jacoco.version>0.8.13</jacoco.version>
 		<dependency-check.version>12.1.2</dependency-check.version>
