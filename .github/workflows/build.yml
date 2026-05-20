@@ -138,6 +138,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path build | Out-Null
           [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -AsByteStream
 
+      - name: Install Windows SDK (signtool)
+        shell: pwsh
+        run: |
+          choco install windows-sdk-10-version-2104-all -y --no-progress
+
       - name: Convert JKS to PFX for signtool
         shell: pwsh
         run: |
@@ -152,17 +157,16 @@ jobs:
       - name: Sign EXE with signtool
         shell: pwsh
         run: |
-          $signtool = (where.exe signtool 2>$null | Select-Object -First 1)
-          if (-not $signtool -or -not (Test-Path $signtool)) {
-            $candidates = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits","C:\Program Files\Windows Kits","C:\Windows Kits" -Filter "signtool.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($candidates) { $signtool = $candidates.FullName }
+          $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "signtool.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $signtool) {
+            $signtool = Get-ChildItem -Path "C:\Program Files\Windows Kits\10\bin" -Filter "signtool.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           }
-          if (-not $signtool -or -not (Test-Path $signtool)) {
-            Write-Error "signtool.exe not found. Skipping EXE signing."
+          if (-not $signtool) {
+            Write-Error "signtool.exe not found after installing Windows SDK."
             exit 1
           }
-          Write-Host "Using signtool: $signtool"
-          & $signtool sign `
+          Write-Host "Using signtool: $($signtool.FullName)"
+          & $signtool.FullName sign `
             /f build/codesign.pfx `
             /p "$env:CODESIGN_STOREPASS" `
             /tr http://timestamp.digicert.com `
@@ -170,21 +174,10 @@ jobs:
             /a `
             JMkvpropedit.exe
 
-      - name: Sign JAR with jarsigner
-        shell: pwsh
-        run: |
-          jarsigner -keystore build/codesign.jks `
-            -storepass "$env:CODESIGN_STOREPASS" `
-            -keypass "$env:CODESIGN_KEYPASS" `
-            -tsa http://timestamp.digicert.com `
-            -digestalg SHA-256 -sigalg SHA256withRSA `
-            target/jmkvpropedit-2.3.0.jar codesign
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            target/jmkvpropedit-*.jar
             JMkvpropedit.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
