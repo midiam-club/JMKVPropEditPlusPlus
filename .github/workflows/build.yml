@@ -12,8 +12,8 @@ env:
   # Configure them in Settings > Secrets and variables > Actions:
   #   CODESIGN_STOREPASS  – keystore password
   #   CODESIGN_KEYPASS    – key password
-  # The codesign profile only activates when build/codesign.jks exists,
-  # so these variables are harmless on forks/PRs that lack the keystore.
+  #   CODESIGN_JKS_B64    – base64-encoded keystore file content
+  # The keystore is decoded at build time so it never lives in source control.
   CODESIGN_STOREPASS: ${{ secrets.CODESIGN_STOREPASS }}
   CODESIGN_KEYPASS: ${{ secrets.CODESIGN_KEYPASS }}
 
@@ -43,6 +43,15 @@ jobs:
           export DISPLAY=:99
           Xvfb :99 -screen 0 1920x1080x24 &
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
+
+      - name: Decode keystore (Windows)
+        if: runner.os == 'Windows' && env.CODESIGN_JKS_B64 != ''
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -Encoding Byte
+        env:
+          CODESIGN_JKS_B64: ${{ secrets.CODESIGN_JKS_B64 }}
 
       - name: Build with Maven
         shell: bash
@@ -111,6 +120,12 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
+
+      - name: Decode keystore
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -Encoding Byte
 
       - name: Build release artifacts
         run: ./mvnw.cmd clean package -B

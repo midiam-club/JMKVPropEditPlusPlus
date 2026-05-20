@@ -117,15 +117,23 @@ The workflow `.github/workflows/build.yml` runs on every push/PR and on tags `v*
 
 ### Code-signing secrets
 
-To enable automatic EXE code signing in CI:
+To enable automatic EXE code signing in CI without committing the keystore to Git:
 
-1. Go to **Settings > Secrets and variables > Actions > New repository secret**.
-2. Add:
+1. Encode the keystore as base64 (PowerShell):
+   ```powershell
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("build/codesign.jks")) | Set-Content -NoNewline "build/codesign.jks.b64"
+   ```
+   Or Bash:
+   ```bash
+   base64 -w 0 build/codesign.jks > build/codesign.jks.b64
+   ```
+2. Go to **Settings > Secrets and variables > Actions > New repository secret**.
+3. Add:
+   - `CODESIGN_JKS_B64`   – entire content of `build/codesign.jks.b64`
    - `CODESIGN_STOREPASS` – keystore password
    - `CODESIGN_KEYPASS`   – key password
-3. Commit `build/codesign.jks` to the repo (it is already ignored by `.gitignore`, so you must force-add it if needed, or store it elsewhere and copy it in the workflow).
 
-The `codesign` Maven profile auto-activates only when `build/codesign.jks` exists, so PRs from forks that lack the keystore will simply skip signing.
+The CI workflow decodes `CODESIGN_JKS_B64` into `build/codesign.jks` at build time, so the binary keystore never lives in source control. The `codesign` Maven profile auto-activates only when `build/codesign.jks` exists, so PRs from forks that lack the secret will simply skip signing.
 
 ## Testing Tips
 
