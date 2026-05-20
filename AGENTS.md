@@ -105,6 +105,28 @@ The `quality` profile runs JaCoCo, SpotBugs, and OWASP Dependency-Check.
   ```
 - **Current Coverage**: ~1% instruction coverage overall, heavily skewed by the untested ~5300-line `JMkvpropedit.java` Swing monolith. The extracted service classes have much higher coverage.
 
+## CI / GitHub Actions
+
+The workflow `.github/workflows/build.yml` runs on every push/PR and on tags `v*`:
+
+| Job | Trigger | Platforms | Notes |
+|---|---|---|---|
+| `build` | push, PR | ubuntu, windows, macos | Builds JAR (+ EXE on Windows), uploads artifacts |
+| `quality` | push, PR | ubuntu | Runs JaCoCo, SpotBugs, OWASP |
+| `release` | tag `v*` | windows | Creates GitHub Release with JAR + EXE assets |
+
+### Code-signing secrets
+
+To enable automatic EXE code signing in CI:
+
+1. Go to **Settings > Secrets and variables > Actions > New repository secret**.
+2. Add:
+   - `CODESIGN_STOREPASS` – keystore password
+   - `CODESIGN_KEYPASS`   – key password
+3. Commit `build/codesign.jks` to the repo (it is already ignored by `.gitignore`, so you must force-add it if needed, or store it elsewhere and copy it in the workflow).
+
+The `codesign` Maven profile auto-activates only when `build/codesign.jks` exists, so PRs from forks that lack the keystore will simply skip signing.
+
 ## Testing Tips
 
 - `BatchExecutorService.isExecutableAvailable("java")` is a safe cross-platform test.
