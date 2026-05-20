@@ -90,6 +90,21 @@ io.github.brunorex
 - Do **not** break existing profile INI format.
 - Windows file-locking can interfere with JUnit `@TempDir` when using `ini4j`; use system temp files (`File.createTempFile`) for invalid-INI tests.
 
+## Quality Gate Notes
+
+The `quality` profile runs JaCoCo, SpotBugs, and OWASP Dependency-Check.
+
+- **JaCoCo & SpotBugs**: Current versions (JaCoCo 0.8.13, SpotBugs 4.9.x) do not yet support **Java 26** class files (major version 70). If you are running the build on JDK 26, skip these plugins:
+  ```bash
+  ./mvnw verify -Pquality -Dspotbugs.skip=true -Djacoco.skip=true
+  ```
+  For full quality gate execution, use a JDK between 21 and 24 (inclusive).
+- **OWASP Dependency-Check**: Requires an NVD API key for reasonable execution times. Without a key, the initial download can take 30+ minutes. Register for a free key at https://nvd.nist.gov/developers/request-an-api-key and set it via:
+  ```bash
+  ./mvnw verify -Pquality -DnvdApiKey=YOUR_KEY
+  ```
+- **Current Coverage**: ~1% instruction coverage overall, heavily skewed by the untested ~5300-line `JMkvpropedit.java` Swing monolith. The extracted service classes have much higher coverage.
+
 ## Testing Tips
 
 - `BatchExecutorService.isExecutableAvailable("java")` is a safe cross-platform test.
