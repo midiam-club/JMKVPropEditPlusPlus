@@ -1,6 +1,11 @@
-# JMkvpropedit
+# JMkvpropedit (JMKVPropEdit++)
 
-A Java GUI for [mkvpropedit](https://mkvtoolnix.download/doc/mkvpropedit.html) (part of MKVToolNix).
+A sophisticated Java GUI for [mkvpropedit](https://mkvtoolnix.download/doc/mkvpropedit.html) (part of the MKVToolNix suite), designed to batch edit properties of Matroska files without remuxing.
+
+> [!IMPORTANT]
+> **Fork Information**: This is a fork of the original [JMkvpropedit by BrunoReX](https://github.com/BrunoReX/jmkvpropedit).
+>
+> **Development**: This enhanced version has been developed with **Vibe Coding**.
 
 ## Prerequisites
 
@@ -46,7 +51,7 @@ If a keystore exists at `build/codesign.jks`, the `codesign` profile signs the E
 Generate a self-signed dev certificate:
 ```bash
 keytool -genkeypair -alias codesign -keyalg RSA -keysize 2048 -validity 365 \
-  -keystore build/codesign.jks -storepass jmkvpropedit \
+  -keystore build/codesign.jks -storepass <password> \
   -dname "CN=JMkvpropedit, O=JMkvpropedit, C=ES" \
   -ext "ExtendedKeyUsage=codeSigning"
 ```
@@ -59,12 +64,31 @@ Runs JaCoCo (coverage), SpotBugs (static analysis), and OWASP Dependency-Check (
 
 ## Features
 
-- **Modern Look & Feel** — Powered by [FlatLaf](https://www.formdev.com/flatlaf/) with Light, Dark, Darcula, and IntelliJ themes (persisted across sessions).
-- **Batch Processing** — Edit metadata for multiple MKV files in parallel.
-- **Profile System** — Save and load track configurations as reusable profiles.
-- **Auto-Download MKVToolNix** — If mkvpropedit is missing on Windows, the app can download it automatically with SHA-256 verification.
-- **Security Hardened** — Input validation, path traversal prevention, command sanitization, and download checksum verification.
-- **Multiplatform** — Windows, macOS, and Linux support.
+### Modern Look & Feel
+Powered by [FlatLaf](https://www.formdev.com/flatlaf/) with Light, Dark, Darcula, and IntelliJ themes (persisted across sessions).
+
+### Batch Processing
+Edit metadata for multiple MKV files in parallel.
+
+### Advanced Profile Management
+One of the most significant additions in this fork is the comprehensive Profile System, available across all three main tabs: **Video**, **Audio**, and **Subtitles**.
+
+- **Create & Update Profiles**: Save your frequently used configurations for Video, Audio, or Subtitle tracks as reusable profiles.
+- **Easy Assignment**: Simply **double-click** on a profile in the list to instantly apply its settings to the selected track options.
+- **Drag & Drop Reordering**: Organize your profiles exactly how you want them by dragging and dropping them in the list.
+
+### Independent Numbering Option
+- **Flexible Control**: The "Numbering" option for tracks is now completely independent. You don't need to enable the "Track Name" to use it.
+- **Smart Activation**: Just check "Edit this track" and the numbering options become available immediately.
+
+### Integrated Auto-Updater
+- **Zero Configuration**: The application includes a built-in downloader. If it doesn't find `mkvpropedit.exe`, it will automatically download the latest compatible version of MKVToolNix and set it up for you, so you can start working right away without manual installation.
+
+### Security Hardened
+Input validation, path traversal prevention, command sanitization, and download checksum verification.
+
+### Multiplatform
+Windows, macOS, and Linux support.
 
 ## Structure
 
@@ -88,3 +112,6 @@ Runs JaCoCo (coverage), SpotBugs (static analysis), and OWASP Dependency-Check (
 ## License
 
 See the project's license file for details.
+
+---
+*Developed with Vibe Coding*
