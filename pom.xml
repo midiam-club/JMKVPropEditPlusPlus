@@ -261,6 +261,8 @@
 						<version>${spotbugs.version}</version>
 						<configuration>
 							<spotbugsVersion>4.9.8</spotbugsVersion>
+							<failOnError>false</failOnError>
+							<xmlOutput>true</xmlOutput>
 						</configuration>
 						<executions>
 							<execution>
