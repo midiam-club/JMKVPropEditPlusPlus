@@ -269,7 +269,8 @@ public class MkvToolsDownloader extends SwingWorker<File, Integer> {
      * @param expectedHash The expected SHA-256 hash (lowercase hex)
      * @throws IOException if the checksum does not match or cannot be computed
      */
-    private void verifyChecksum(File file, String expectedHash) throws IOException {
+    // Package-private for unit testing
+    void verifyChecksum(File file, String expectedHash) throws IOException {
         if (expectedHash == null || expectedHash.isBlank()) {
             statusCallback.accept("Warning: download checksum verification is disabled");
             return;
