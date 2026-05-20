@@ -141,9 +141,9 @@ public class InputValidator {
         if (value == null) {
             return;
         }
-        if (value.contains("..") || value.contains("/") || value.contains("\\")) {
+        if (value.contains("..")) {
             throw new MkvPropeditException(ErrorCode.INVALID_PARAMETER,
-                    "Path traversal characters not allowed: " + value);
+                    "Path traversal not allowed: " + value);
         }
     }
 
