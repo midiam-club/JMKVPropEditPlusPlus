@@ -53,7 +53,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build | Out-Null
-          [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -Encoding Byte
+          [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -AsByteStream
         env:
           CODESIGN_JKS_B64: ${{ secrets.CODESIGN_JKS_B64 }}
 
@@ -132,7 +132,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build | Out-Null
-          [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -Encoding Byte
+          [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -AsByteStream
 
       - name: Build release artifacts
         run: ./mvnw.cmd clean package -B
