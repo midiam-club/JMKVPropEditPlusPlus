@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <suppress>
+        <notes><![CDATA[
+        False positive: commons-lang3 is not commons-lang.
+        CVE-2025-48924 affects Apache Commons Lang (legacy 2.x), not Commons Lang3.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.apache\.commons/commons-lang3@.*$</packageUrl>
+        <cve>CVE-2025-48924</cve>
+    </suppress>
+    <suppress>
+        <notes><![CDATA[
+        False positive: FlatLaf (Swing Look and Feel library) is not the "flat" project.
+        CVE-2020-36632 affects a different project with a generic CPE match.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/com\.formdev/flatlaf@.*$</packageUrl>
+        <cve>CVE-2020-36632</cve>
+    </suppress>
+</suppressions>
