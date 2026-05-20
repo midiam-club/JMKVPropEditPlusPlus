@@ -8,13 +8,6 @@ on:
     branches: [master, main]
 
 env:
-  # Code-signing passwords are read from repository secrets.
-  # Configure them in Settings > Secrets and variables > Actions:
-  #   CODESIGN_STOREPASS  – keystore password
-  #   CODESIGN_KEYPASS    – key password
-  #   CODESIGN_JKS_B64    – base64-encoded keystore file content
-  CODESIGN_STOREPASS: ${{ secrets.CODESIGN_STOREPASS }}
-  CODESIGN_KEYPASS: ${{ secrets.CODESIGN_KEYPASS }}
   # Opt into Node.js 24 for GitHub Actions (Node 20 is deprecated)
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -131,48 +124,6 @@ jobs:
 
       - name: Build release artifacts
         run: ./mvnw.cmd clean package -B
-
-      - name: Decode keystore
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path build | Out-Null
-          [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -AsByteStream
-
-      - name: Install Windows SDK (signtool)
-        shell: pwsh
-        run: |
-          choco install windows-sdk-10-version-2104-all -y --no-progress
-
-      - name: Convert JKS to PFX for signtool
-        shell: pwsh
-        run: |
-          keytool -importkeystore `
-            -srckeystore build/codesign.jks -destkeystore build/codesign.pfx `
-            -srcstoretype JKS -deststoretype PKCS12 `
-            -srcstorepass "$env:CODESIGN_STOREPASS" -deststorepass "$env:CODESIGN_STOREPASS" `
-            -srcalias codesign -destalias codesign `
-            -srckeypass "$env:CODESIGN_KEYPASS" -destkeypass "$env:CODESIGN_STOREPASS" `
-            -noprompt
-
-      - name: Sign EXE with signtool
-        shell: pwsh
-        run: |
-          $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "x64" -Directory -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Join-Path $_.FullName "signtool.exe" } | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $signtool) {
-            $signtool = Get-ChildItem -Path "C:\Program Files\Windows Kits\10\bin" -Filter "x64" -Directory -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Join-Path $_.FullName "signtool.exe" } | Where-Object { Test-Path $_ } | Select-Object -First 1
-          }
-          if (-not $signtool) {
-            Write-Error "signtool.exe (x64) not found after installing Windows SDK."
-            exit 1
-          }
-          Write-Host "Using signtool: $signtool"
-          & $signtool sign `
-            /f build/codesign.pfx `
-            /p "$env:CODESIGN_STOREPASS" `
-            /tr http://timestamp.digicert.com `
-            /td sha256 /fd sha256 `
-            /a `
-            JMkvpropedit.exe
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
