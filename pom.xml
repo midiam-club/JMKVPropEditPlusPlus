@@ -26,11 +26,20 @@
 		<jacoco.version>0.8.13</jacoco.version>
 		<dependency-check.version>12.1.2</dependency-check.version>
 
-		<!-- Code signing settings (self-signed dev cert by default) -->
+		<!--
+		  Code signing settings (self-signed dev cert by default).
+		  The keystore password and key password are read from environment
+		  variables so they are never hard-coded in source control:
+		    export CODESIGN_STOREPASS=your_store_password
+		    export CODESIGN_KEYPASS=your_key_password
+		  Or pass them as Maven properties:
+		    mvn clean package -Dcodesign.storepass=yourpass -Dcodesign.keypass=yourpass
+		  For production releases, replace with a real code-signing certificate.
+		-->
 		<codesign.keystore>${basedir}/build/codesign.jks</codesign.keystore>
 		<codesign.alias>codesign</codesign.alias>
-		<codesign.storepass>jmkvpropedit</codesign.storepass>
-		<codesign.keypass>jmkvpropedit</codesign.keypass>
+		<codesign.storepass>${env.CODESIGN_STOREPASS}</codesign.storepass>
+		<codesign.keypass>${env.CODESIGN_KEYPASS}</codesign.keypass>
 	</properties>
 
 	<dependencies>
@@ -163,11 +172,14 @@
 		</profile>
 
 		<!-- Code signing: activated automatically when build/codesign.jks exists.
-		     Generate a self-signed cert with:
+		     Generate a self-signed cert with (replace <password> with your own):
 		       keytool -genkeypair -alias codesign -keyalg RSA -keysize 2048 -validity 365
-		         -keystore build/codesign.jks -storepass jmkvpropedit
+		         -keystore build/codesign.jks -storepass <password>
 		         -dname "CN=JMkvpropedit, O=JMkvpropedit, C=ES"
 		         -ext "ExtendedKeyUsage=codeSigning"
+		     Then set the environment variables before building:
+		       export CODESIGN_STOREPASS=<password>
+		       export CODESIGN_KEYPASS=<password>
 		     For production releases, replace with a real code signing certificate.
 		-->
 		<profile>
