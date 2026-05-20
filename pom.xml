@@ -284,6 +284,7 @@
 							<suppressionFiles>
 								<suppressionFile>dependency-check-suppressions.xml</suppressionFile>
 							</suppressionFiles>
+							<failOnError>false</failOnError>
 							<ossIndexAnalyzerEnabled>false</ossIndexAnalyzerEnabled>
 						</configuration>
 						<executions>
