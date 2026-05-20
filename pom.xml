@@ -19,7 +19,6 @@
 		<maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
 		<maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
 		<exec-maven-plugin.version>3.5.0</exec-maven-plugin.version>
-		<jsign-maven-plugin.version>6.0</jsign-maven-plugin.version>
 		<junit-jupiter.version>5.12.2</junit-jupiter.version>
 		<mockito.version>5.17.0</mockito.version>
 		<spotbugs.version>4.9.3.0</spotbugs.version>
@@ -27,19 +26,9 @@
 		<dependency-check.version>12.1.2</dependency-check.version>
 
 		<!--
-		  Code signing settings (self-signed dev cert by default).
-		  The keystore password and key password are read from environment
-		  variables so they are never hard-coded in source control:
-		    export CODESIGN_STOREPASS=your_store_password
-		    export CODESIGN_KEYPASS=your_key_password
-		  Or pass them as Maven properties:
-		    mvn clean package -Dcodesign.storepass=yourpass -Dcodesign.keypass=yourpass
-		  For production releases, replace with a real code-signing certificate.
+		  Code signing is done via signtool.exe in CI (see .github/workflows/build.yml).
+		  Local builds are unsigned by default.
 		-->
-		<codesign.keystore>${basedir}/build/codesign.jks</codesign.keystore>
-		<codesign.alias>codesign</codesign.alias>
-		<codesign.storepass>${env.CODESIGN_STOREPASS}</codesign.storepass>
-		<codesign.keypass>${env.CODESIGN_KEYPASS}</codesign.keypass>
 	</properties>
 
 	<dependencies>
@@ -175,51 +164,6 @@
 										<argument>${basedir}/launch4j/launch4j.jar</argument>
 										<argument>${basedir}/launch4j/config/exe-standalone.xml</argument>
 									</arguments>
-								</configuration>
-							</execution>
-						</executions>
-					</plugin>
-				</plugins>
-			</build>
-		</profile>
-
-		<!-- Code signing: activated automatically when build/codesign.jks exists.
-		     Generate a self-signed cert with (replace <password> with your own):
-		       keytool -genkeypair -alias codesign -keyalg RSA -keysize 2048 -validity 365
-		         -keystore build/codesign.jks -storepass <password>
-		         -dname "CN=JMkvpropedit, O=JMkvpropedit, C=ES"
-		         -ext "ExtendedKeyUsage=codeSigning"
-		     Then set the environment variables before building:
-		       export CODESIGN_STOREPASS=<password>
-		       export CODESIGN_KEYPASS=<password>
-		     For production releases, replace with a real code signing certificate.
-		-->
-		<profile>
-			<id>codesign</id>
-			<activation>
-				<file>
-					<exists>build/codesign.jks</exists>
-				</file>
-			</activation>
-			<build>
-				<plugins>
-					<plugin>
-						<groupId>net.jsign</groupId>
-						<artifactId>jsign-maven-plugin</artifactId>
-						<version>${jsign-maven-plugin.version}</version>
-						<executions>
-							<execution>
-								<id>sign-exe</id>
-								<phase>package</phase>
-								<goals>
-									<goal>sign</goal>
-								</goals>
-								<configuration>
-									<file>${basedir}/JMkvpropedit.exe</file>
-									<keystore>${codesign.keystore}</keystore>
-									<alias>${codesign.alias}</alias>
-									<storepass>${codesign.storepass}</storepass>
-									<keypass>${codesign.keypass}</keypass>
 								</configuration>
 							</execution>
 						</executions>

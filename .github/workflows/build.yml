@@ -50,15 +50,6 @@ jobs:
         if: runner.os != 'Windows'
         run: chmod +x mvnw
 
-      - name: Decode keystore (Windows)
-        if: runner.os == 'Windows' && env.CODESIGN_JKS_B64 != ''
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path build | Out-Null
-          [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -AsByteStream
-        env:
-          CODESIGN_JKS_B64: ${{ secrets.CODESIGN_JKS_B64 }}
-
       - name: Build with Maven (Windows)
         if: runner.os == 'Windows'
         run: ./mvnw.cmd clean verify -B
@@ -145,8 +136,41 @@ jobs:
           New-Item -ItemType Directory -Force -Path build | Out-Null
           [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -AsByteStream
 
-      - name: Build release artifacts (unsigned test)
-        run: ./mvnw.cmd clean package -B -P-codesign
+      - name: Build release artifacts
+        run: ./mvnw.cmd clean package -B
+
+      - name: Decode keystore
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -AsByteStream
+
+      - name: Convert JKS to PFX
+        shell: pwsh
+        run: |
+          keytool -importkeystore `
+            -srckeystore build/codesign.jks -destkeystore build/codesign.pfx `
+            -srcstoretype JKS -deststoretype PKCS12 `
+            -srcstorepass "$env:CODESIGN_STOREPASS" -deststorepass "$env:CODESIGN_STOREPASS" `
+            -srcalias codesign -destalias codesign `
+            -srckeypass "$env:CODESIGN_KEYPASS" -destkeypass "$env:CODESIGN_STOREPASS" `
+            -noprompt
+
+      - name: Sign EXE with signtool
+        shell: pwsh
+        run: |
+          $sdkPaths = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "x64" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $sdkPaths) {
+            $sdkPaths = Get-ChildItem -Path "C:\Program Files\Windows Kits\10\bin" -Filter "x64" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+          $signtool = Join-Path $sdkPaths.FullName "signtool.exe"
+          & $signtool sign `
+            /f build/codesign.pfx `
+            /p "$env:CODESIGN_STOREPASS" `
+            /tr http://timestamp.digicert.com `
+            /td sha256 /fd sha256 `
+            /a `
+            JMkvpropedit.exe
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
