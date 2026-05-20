@@ -16,6 +16,8 @@ env:
   # The keystore is decoded at build time so it never lives in source control.
   CODESIGN_STOREPASS: ${{ secrets.CODESIGN_STOREPASS }}
   CODESIGN_KEYPASS: ${{ secrets.CODESIGN_KEYPASS }}
+  # Opt into Node.js 24 for GitHub Actions (Node 20 is deprecated)
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
