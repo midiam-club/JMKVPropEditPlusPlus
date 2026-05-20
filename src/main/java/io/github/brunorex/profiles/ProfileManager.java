@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import org.ini4j.Ini;
 import org.ini4j.Profile.Section;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ProfileManager {
     private static final String AUDIO_PREFIX = "AudioProfile_";
@@ -13,6 +15,8 @@ public class ProfileManager {
     public enum ProfileType {
         AUDIO, VIDEO, SUBTITLE
     }
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProfileManager.class);
 
     private List<TrackProfile> audioProfiles;
     private List<TrackProfile> videoProfiles;
@@ -70,7 +74,7 @@ public class ProfileManager {
         try {
             ini.store();
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error saving profiles to INI", e);
         }
     }
 

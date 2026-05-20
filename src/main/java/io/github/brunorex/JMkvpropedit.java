@@ -57,8 +57,8 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.AbstractButton;
 import javax.swing.Box;
@@ -110,7 +110,7 @@ public class JMkvpropedit {
 
     private static final String VERSION_NUMBER = "v2.3.0";
     private static final int MAX_STREAMS = 200;
-    private static final Logger LOGGER = Logger.getLogger(JMkvpropedit.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(JMkvpropedit.class);
     private static String[] argsArray;
 
     private SwingWorker<Void, Void> worker = null;
@@ -575,7 +575,7 @@ public class JMkvpropedit {
                     JMkvpropedit window = new JMkvpropedit();
                     window.frmJMkvpropedit.setVisible(true);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    LOGGER.error("Error starting application", e);
                 }
             }
         });
@@ -602,7 +602,7 @@ public class JMkvpropedit {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             } catch (Exception ex) {
-                ex.printStackTrace();
+                LOGGER.error("Failed to set fallback Look and Feel", ex);
             }
         }
     }
@@ -2746,7 +2746,7 @@ public class JMkvpropedit {
                         try {
                             txtAttachAddFile.setText(f.getCanonicalPath());
                         } catch (IOException e1) {
-                            e1.printStackTrace();
+                            LOGGER.error("Error resolving attachment add file path", e1);
                         }
                     }
                 }
@@ -2950,7 +2950,7 @@ public class JMkvpropedit {
                         try {
                             txtAttachReplaceNew.setText(f.getCanonicalPath());
                         } catch (IOException e1) {
-                            e1.printStackTrace();
+                            LOGGER.error("Error resolving attachment replacement file path", e1);
                         }
                     }
                 }
@@ -5112,7 +5112,7 @@ public class JMkvpropedit {
                     LanguageManager.setLocale(Locale.of(lang));
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.error("Error loading language preference", e);
             }
         }
     }
@@ -5131,7 +5131,7 @@ public class JMkvpropedit {
             }
             ini.store();
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error saving language preference", e);
         }
     }
 

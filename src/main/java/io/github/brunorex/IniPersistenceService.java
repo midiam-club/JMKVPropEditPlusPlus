@@ -4,8 +4,8 @@ import io.github.brunorex.profiles.ProfileManager;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
@@ -20,7 +20,7 @@ import org.ini4j.InvalidFileFormatException;
  */
 public class IniPersistenceService {
 
-    private static final Logger LOGGER = Logger.getLogger(IniPersistenceService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(IniPersistenceService.class);
 
     private final File iniFile;
 
@@ -44,9 +44,9 @@ public class IniPersistenceService {
         try {
             return new Ini(iniFile);
         } catch (InvalidFileFormatException e) {
-            LOGGER.log(Level.WARNING, "Invalid INI file format: " + iniFile.getPath(), e);
+            LOGGER.warn("Invalid INI file format: {}", iniFile.getPath(), e);
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Error reading INI file: " + iniFile.getPath(), e);
+            LOGGER.warn("Error reading INI file: {}", iniFile.getPath(), e);
         }
         return null;
     }
@@ -55,7 +55,7 @@ public class IniPersistenceService {
         try {
             iniFile.createNewFile();
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Could not create INI file: " + iniFile.getPath(), e);
+            LOGGER.warn("Could not create INI file: {}", iniFile.getPath(), e);
             return;
         }
 
@@ -110,9 +110,9 @@ public class IniPersistenceService {
             ini.put("General", "mkvpropedit", path);
             ini.store();
         } catch (InvalidFileFormatException e) {
-            LOGGER.log(Level.WARNING, "Invalid INI file format while saving: " + iniFile.getPath(), e);
+            LOGGER.warn("Invalid INI file format while saving: {}", iniFile.getPath(), e);
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Error saving INI file: " + iniFile.getPath(), e);
+            LOGGER.warn("Error saving INI file: {}", iniFile.getPath(), e);
         }
     }
 
@@ -128,7 +128,7 @@ public class IniPersistenceService {
             ini.put("General", "theme", theme);
             ini.store();
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Error saving theme preference", e);
+            LOGGER.warn("Error saving theme preference", e);
         }
     }
 

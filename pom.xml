@@ -69,6 +69,18 @@
 			<version>3.5.4</version>
 		</dependency>
 
+		<!-- Logging: SLF4J API + Logback -->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>2.0.16</version>
+		</dependency>
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
+			<version>1.5.18</version>
+		</dependency>
+
 		<!-- JUnit 5 (Jupiter) -->
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>

@@ -12,8 +12,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Executes mkvpropedit commands in parallel and captures their output.
@@ -25,7 +25,7 @@ import java.util.logging.Logger;
  */
 public class BatchExecutorService {
 
-    private static final Logger LOGGER = Logger.getLogger(BatchExecutorService.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(BatchExecutorService.class);
 
     private final String executablePath;
     private final List<String> cmdLineBatch;
@@ -100,7 +100,7 @@ public class BatchExecutorService {
                     exitCode);
 
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Error executing mkvpropedit for file: " + targetFiles.get(index), e);
+            LOGGER.warn("Error executing mkvpropedit for file: {}", targetFiles.get(index), e);
             return new BatchResult(targetFiles.get(index), cmdLineBatch.get(index),
                     "Error: " + e.getMessage(), -1);
         } catch (InterruptedException e) {

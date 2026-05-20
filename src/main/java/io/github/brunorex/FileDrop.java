@@ -25,6 +25,9 @@
 
 package io.github.brunorex;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.datatransfer.DataFlavor;
@@ -89,6 +92,8 @@ import java.util.TooManyListenersException;
  * @version 1.0.1
  */
 public class FileDrop {
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileDrop.class);
+
     private transient DropTargetListener dropListener;
 
     /** Discover if the running JVM is modern enough to have drag and drop. */
@@ -305,8 +310,7 @@ public class FileDrop {
             dt.addDropTargetListener(dropListener);
         } // end try
         catch (TooManyListenersException e) {
-            e.printStackTrace();
-            log(out, "FileDrop: Drop will not work due to previous error. " + "Do you have another listener attached?");
+            LOGGER.warn("FileDrop: Drop will not work due to previous error. Do you have another listener attached?", e);
         } // end catch
 
         // Listen for hierarchy changes and remove the drop target when the parent gets
