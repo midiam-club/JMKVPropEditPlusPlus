@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.github.brunorex</groupId>
 	<artifactId>jmkvpropedit</artifactId>
-	<version>2.2.0</version>
+	<version>2.3.0</version>
 	<name>JMkvpropedit</name>
 	<description>A Java GUI for mkvpropedit</description>
 
@@ -19,11 +19,18 @@
 		<maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
 		<maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
 		<exec-maven-plugin.version>3.5.0</exec-maven-plugin.version>
+		<jsign-maven-plugin.version>6.0</jsign-maven-plugin.version>
 		<junit-jupiter.version>5.12.2</junit-jupiter.version>
 		<mockito.version>5.17.0</mockito.version>
 		<spotbugs.version>4.9.3.0</spotbugs.version>
 		<jacoco.version>0.8.13</jacoco.version>
 		<dependency-check.version>12.1.2</dependency-check.version>
+
+		<!-- Code signing settings (self-signed dev cert by default) -->
+		<codesign.keystore>${basedir}/build/codesign.jks</codesign.keystore>
+		<codesign.alias>codesign</codesign.alias>
+		<codesign.storepass>jmkvpropedit</codesign.storepass>
+		<codesign.keypass>jmkvpropedit</codesign.keypass>
 	</properties>
 
 	<dependencies>
@@ -99,11 +106,12 @@
 							<goal>shade</goal>
 						</goals>
 						<configuration>
-							<minimizeJar>true</minimizeJar>
+							<minimizeJar>false</minimizeJar>
 							<transformers>
 								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
 									<mainClass>io.github.brunorex.JMkvpropedit</mainClass>
 								</transformer>
+								<transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
 							</transformers>
 						</configuration>
 					</execution>
@@ -146,6 +154,48 @@
 										<argument>${basedir}/launch4j/launch4j.jar</argument>
 										<argument>${basedir}/launch4j/config/exe-standalone.xml</argument>
 									</arguments>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+
+		<!-- Code signing: activated automatically when build/codesign.jks exists.
+		     Generate a self-signed cert with:
+		       keytool -genkeypair -alias codesign -keyalg RSA -keysize 2048 -validity 365
+		         -keystore build/codesign.jks -storepass jmkvpropedit
+		         -dname "CN=JMkvpropedit, O=JMkvpropedit, C=ES"
+		         -ext "ExtendedKeyUsage=codeSigning"
+		     For production releases, replace with a real code signing certificate.
+		-->
+		<profile>
+			<id>codesign</id>
+			<activation>
+				<file>
+					<exists>build/codesign.jks</exists>
+				</file>
+			</activation>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>net.jsign</groupId>
+						<artifactId>jsign-maven-plugin</artifactId>
+						<version>${jsign-maven-plugin.version}</version>
+						<executions>
+							<execution>
+								<id>sign-exe</id>
+								<phase>package</phase>
+								<goals>
+									<goal>sign</goal>
+								</goals>
+								<configuration>
+									<file>${basedir}/JMkvpropedit.exe</file>
+									<keystore>${codesign.keystore}</keystore>
+									<alias>${codesign.alias}</alias>
+									<storepass>${codesign.storepass}</storepass>
+									<keypass>${codesign.keypass}</keypass>
 								</configuration>
 							</execution>
 						</executions>
