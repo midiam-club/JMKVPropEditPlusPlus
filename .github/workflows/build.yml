@@ -3,12 +3,24 @@ name: Build
 on:
   push:
     branches: [master, main]
+    tags: ['v*']
   pull_request:
     branches: [master, main]
+
+env:
+  # Code-signing passwords are read from repository secrets.
+  # Configure them in Settings > Secrets and variables > Actions:
+  #   CODESIGN_STOREPASS  – keystore password
+  #   CODESIGN_KEYPASS    – key password
+  # The codesign profile only activates when build/codesign.jks exists,
+  # so these variables are harmless on forks/PRs that lack the keystore.
+  CODESIGN_STOREPASS: ${{ secrets.CODESIGN_STOREPASS }}
+  CODESIGN_KEYPASS: ${{ secrets.CODESIGN_KEYPASS }}
 
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -21,9 +33,41 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Start virtual display (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
 
       - name: Build with Maven
-        run: ./mvnw clean verify -B
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            ./mvnw.cmd clean verify -B
+          else
+            JAVA_TOOL_OPTIONS="-Djava.awt.headless=false" ./mvnw clean verify -B
+          fi
+        env:
+          # Ensure Swing integration tests run on all platforms with a display
+          JAVA_TOOL_OPTIONS: "-Djava.awt.headless=false"
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmkvpropedit-jar-${{ matrix.os }}
+          path: target/jmkvpropedit-*.jar
+
+      - name: Upload EXE artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmkvpropedit-exe
+          path: JMkvpropedit.exe
 
   quality:
     runs-on: ubuntu-latest
@@ -36,6 +80,46 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Start virtual display (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
 
       - name: Run quality checks
-        run: ./mvnw clean verify -Pquality -B
+        run: JAVA_TOOL_OPTIONS="-Djava.awt.headless=false" ./mvnw clean verify -Pquality -B
+        env:
+          JAVA_TOOL_OPTIONS: "-Djava.awt.headless=false"
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, quality]
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build release artifacts
+        run: ./mvnw.cmd clean package -B
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            target/jmkvpropedit-*.jar
+            JMkvpropedit.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
