@@ -13,7 +13,6 @@ env:
   #   CODESIGN_STOREPASS  – keystore password
   #   CODESIGN_KEYPASS    – key password
   #   CODESIGN_JKS_B64    – base64-encoded keystore file content
-  # The keystore is decoded at build time so it never lives in source control.
   CODESIGN_STOREPASS: ${{ secrets.CODESIGN_STOREPASS }}
   CODESIGN_KEYPASS: ${{ secrets.CODESIGN_KEYPASS }}
   # Opt into Node.js 24 for GitHub Actions (Node 20 is deprecated)
@@ -130,12 +129,6 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Decode keystore
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path build | Out-Null
-          [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -AsByteStream
-
       - name: Build release artifacts
         run: ./mvnw.cmd clean package -B
 
@@ -145,7 +138,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path build | Out-Null
           [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -AsByteStream
 
-      - name: Convert JKS to PFX
+      - name: Convert JKS to PFX for signtool
         shell: pwsh
         run: |
           keytool -importkeystore `
@@ -165,7 +158,7 @@ jobs:
             if ($candidates) { $signtool = $candidates.FullName }
           }
           if (-not $signtool -or -not (Test-Path $signtool)) {
-            Write-Error "signtool.exe not found. Cannot sign EXE."
+            Write-Error "signtool.exe not found. Skipping EXE signing."
             exit 1
           }
           Write-Host "Using signtool: $signtool"
@@ -176,6 +169,16 @@ jobs:
             /td sha256 /fd sha256 `
             /a `
             JMkvpropedit.exe
+
+      - name: Sign JAR with jarsigner
+        shell: pwsh
+        run: |
+          jarsigner -keystore build/codesign.jks `
+            -storepass "$env:CODESIGN_STOREPASS" `
+            -keypass "$env:CODESIGN_KEYPASS" `
+            -tsa http://timestamp.digicert.com `
+            -digestalg SHA-256 -sigalg SHA256withRSA `
+            target/jmkvpropedit-2.3.0.jar codesign
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
