@@ -145,8 +145,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path build | Out-Null
           [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}") | Set-Content -NoNewline -Path build/codesign.jks -AsByteStream
 
-      - name: Build release artifacts
-        run: ./mvnw.cmd clean package -B
+      - name: Build release artifacts (unsigned test)
+        run: ./mvnw.cmd clean package -B -P-codesign
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
