@@ -44,6 +44,10 @@ jobs:
           Xvfb :99 -screen 0 1920x1080x24 &
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
 
+      - name: Make Maven wrapper executable (non-Windows)
+        if: runner.os != 'Windows'
+        run: chmod +x mvnw
+
       - name: Decode keystore (Windows)
         if: runner.os == 'Windows' && env.CODESIGN_JKS_B64 != ''
         shell: pwsh
@@ -53,16 +57,16 @@ jobs:
         env:
           CODESIGN_JKS_B64: ${{ secrets.CODESIGN_JKS_B64 }}
 
-      - name: Build with Maven
-        shell: bash
-        run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            ./mvnw.cmd clean verify -B
-          else
-            JAVA_TOOL_OPTIONS="-Djava.awt.headless=false" ./mvnw clean verify -B
-          fi
+      - name: Build with Maven (Windows)
+        if: runner.os == 'Windows'
+        run: ./mvnw.cmd clean verify -B
         env:
-          # Ensure Swing integration tests run on all platforms with a display
+          JAVA_TOOL_OPTIONS: "-Djava.awt.headless=false"
+
+      - name: Build with Maven (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: JAVA_TOOL_OPTIONS="-Djava.awt.headless=false" ./mvnw clean verify -B
+        env:
           JAVA_TOOL_OPTIONS: "-Djava.awt.headless=false"
 
       - name: Upload JAR artifact
@@ -98,6 +102,9 @@ jobs:
           export DISPLAY=:99
           Xvfb :99 -screen 0 1920x1080x24 &
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
+
+      - name: Make Maven wrapper executable
+        run: chmod +x mvnw
 
       - name: Run quality checks
         run: JAVA_TOOL_OPTIONS="-Djava.awt.headless=false" ./mvnw clean verify -Pquality -B
