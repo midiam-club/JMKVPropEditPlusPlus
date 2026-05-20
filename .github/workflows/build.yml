@@ -159,11 +159,16 @@ jobs:
       - name: Sign EXE with signtool
         shell: pwsh
         run: |
-          $sdkPaths = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "x64" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $sdkPaths) {
-            $sdkPaths = Get-ChildItem -Path "C:\Program Files\Windows Kits\10\bin" -Filter "x64" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          $signtool = (where.exe signtool 2>$null | Select-Object -First 1)
+          if (-not $signtool -or -not (Test-Path $signtool)) {
+            $candidates = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits","C:\Program Files\Windows Kits","C:\Windows Kits" -Filter "signtool.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($candidates) { $signtool = $candidates.FullName }
           }
-          $signtool = Join-Path $sdkPaths.FullName "signtool.exe"
+          if (-not $signtool -or -not (Test-Path $signtool)) {
+            Write-Error "signtool.exe not found. Cannot sign EXE."
+            exit 1
+          }
+          Write-Host "Using signtool: $signtool"
           & $signtool sign `
             /f build/codesign.pfx `
             /p "$env:CODESIGN_STOREPASS" `
