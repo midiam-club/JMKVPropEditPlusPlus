@@ -20,7 +20,7 @@ Double-click `JMkvpropedit.exe`.
 
 ### Option 2: Command Line (Universal)
 ```bash
-java -jar target/jmkvpropedit-2.3.0.jar
+java -jar target/jmkvpropedit-2.4.0.jar
 ```
 
 ### Option 3: Development Launch
@@ -38,7 +38,7 @@ mvnw.cmd exec:java -Dexec.mainClass="io.github.brunorex.JMkvpropedit"
 ```bash
 ./mvnw clean package
 ```
-Produces `target/jmkvpropedit-2.3.0.jar` — a self-contained, portable JAR with all dependencies shaded inside.
+Produces `target/jmkvpropedit-2.4.0.jar` — a self-contained, portable JAR with all dependencies shaded inside.
 
 ### Windows .exe Wrapper
 On Windows, the `windows-exe` profile activates automatically and generates `JMkvpropedit.exe` via launch4j.

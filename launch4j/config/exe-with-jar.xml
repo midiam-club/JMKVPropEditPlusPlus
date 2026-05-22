@@ -1,7 +1,7 @@
 <launch4jConfig>
   <dontWrapJar>true</dontWrapJar>
   <headerType>gui</headerType>
-  <jar>../../target/jmkvpropedit-2.3.0.jar</jar>
+  <jar>../../target/jmkvpropedit-2.4.0.jar</jar>
   <outfile>../../JMkvpropedit.exe</outfile>
   <errTitle></errTitle>
   <cmdLine></cmdLine>

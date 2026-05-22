@@ -11,7 +11,7 @@ JMkvpropedit is a Swing-based GUI for mkvpropedit (MKVToolNix). It is built with
 - **Tool**: Maven 3.9+ (wrapper available: `mvnw` / `mvnw.cmd`)
 - **Java Version**: 21 (source, target, release)
 - **Main Class**: `io.github.brunorex.JMkvpropedit`
-- **Default Artifact**: `target/jmkvpropedit-2.3.0.jar`
+- **Default Artifact**: `target/jmkvpropedit-2.4.0.jar`
 
 ### Key Commands
 
