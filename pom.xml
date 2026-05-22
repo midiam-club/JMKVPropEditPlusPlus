@@ -29,6 +29,8 @@
 		  Code signing is done via signtool.exe in CI (see .github/workflows/build.yml).
 		  Local builds are unsigned by default.
 		-->
+		<generateExe>true</generateExe>
+	
 	</properties>
 
 	<dependencies>
@@ -143,6 +145,10 @@
 				<os>
 					<family>windows</family>
 				</os>
+				<property>
+					<name>generateExe</name>
+					<value>true</value>
+				</property>
 			</activation>
 			<build>
 				<plugins>
