@@ -36,12 +36,19 @@ class JMkvpropeditIntegrationTest {
     }
 
     /**
-     * Helper to invoke a private method by name.
+     * Helper to invoke a private method by name on a specific class.
      */
-    private Object invokePrivate(Object target, String methodName, Class<?>[] paramTypes, Object... args) throws Exception {
-        Method method = JMkvpropedit.class.getDeclaredMethod(methodName, paramTypes);
+    private Object invokePrivate(Class<?> clazz, Object target, String methodName, Class<?>[] paramTypes, Object... args) throws Exception {
+        Method method = clazz.getDeclaredMethod(methodName, paramTypes);
         method.setAccessible(true);
         return method.invoke(target, args);
+    }
+
+    /**
+     * Helper to invoke a private method by name on JMkvpropedit.
+     */
+    private Object invokePrivate(Object target, String methodName, Class<?>[] paramTypes, Object... args) throws Exception {
+        return invokePrivate(JMkvpropedit.class, target, methodName, paramTypes, args);
     }
 
     /**
@@ -62,6 +69,13 @@ class JMkvpropeditIntegrationTest {
         field.set(target, value);
     }
 
+    /**
+     * Helper to get the InputTabPanel from a JMkvpropedit instance.
+     */
+    private InputTabPanel getInputTabPanel(JMkvpropedit app) throws Exception {
+        return (InputTabPanel) readField(app, "inputTabPanel");
+    }
+
     @Test
     void constructor_initializesFrameAndServices() throws Exception {
         final JMkvpropedit[] appHolder = new JMkvpropedit[1];
@@ -79,7 +93,7 @@ class JMkvpropeditIntegrationTest {
         JFrame frame = (JFrame) readField(app, "frmJMkvpropedit");
         assertNotNull(frame);
         assertTrue(frame.getTitle().contains("JMKVPropedit++"));
-        assertTrue(frame.getTitle().contains("v2.4.0"));
+        assertTrue(frame.getTitle().contains("v2.5.0"));
 
         IniPersistenceService iniService = (IniPersistenceService) readField(app, "iniService");
         assertNotNull(iniService);
@@ -100,9 +114,10 @@ class JMkvpropeditIntegrationTest {
         });
 
         JMkvpropedit app = appHolder[0];
-        invokePrivate(app, "addFile", new Class[]{File.class, boolean.class}, mkvFile, true);
+        InputTabPanel inputPanel = getInputTabPanel(app);
+        invokePrivate(InputTabPanel.class, inputPanel, "addFile", new Class[]{File.class, boolean.class}, mkvFile, true);
 
-        DefaultListModel<String> modelFiles = (DefaultListModel<String>) readField(app, "modelFiles");
+        DefaultListModel<String> modelFiles = inputPanel.getModel();
         assertNotNull(modelFiles);
         assertEquals(1, modelFiles.getSize());
         assertEquals(mkvFile.getCanonicalPath(), modelFiles.get(0));
@@ -128,7 +143,8 @@ class JMkvpropeditIntegrationTest {
         });
 
         JMkvpropedit app = appHolder[0];
-        DefaultListModel<String> modelFiles = (DefaultListModel<String>) readField(app, "modelFiles");
+        InputTabPanel inputPanel = getInputTabPanel(app);
+        DefaultListModel<String> modelFiles = inputPanel.getModel();
         assertNotNull(modelFiles);
         assertTrue(modelFiles.getSize() >= 1, "Expected at least one file in modelFiles");
         assertEquals(mkvFile.getCanonicalPath(), modelFiles.get(0));
