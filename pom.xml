@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.github.brunorex</groupId>
 	<artifactId>jmkvpropedit</artifactId>
-    <version>2.4.0</version>
+    <version>2.5.0</version>
 	<name>JMkvpropedit</name>
 	<description>A Java GUI for mkvpropedit</description>
 
