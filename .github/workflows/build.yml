@@ -114,6 +114,7 @@ jobs:
     env:
       CODESIGN_STOREPASS: ${{ secrets.CODESIGN_STOREPASS }}
       CODESIGN_KEYPASS: ${{ secrets.CODESIGN_KEYPASS }}
+      CODESIGN_JKS_B64: ${{ secrets.CODESIGN_JKS_B64 }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -126,11 +127,11 @@ jobs:
           cache: 'maven'
 
       - name: Decode keystore
-        if: ${{ secrets.CODESIGN_JKS_B64 != '' }}
+        if: ${{ env.CODESIGN_JKS_B64 != '' }}
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path build | Out-Null
-          [System.IO.File]::WriteAllBytes("build/codesign.jks", [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}"))
+          [System.IO.File]::WriteAllBytes("build/codesign.jks", [Convert]::FromBase64String($env:CODESIGN_JKS_B64))
 
       - name: Build JAR
         run: ./mvnw.cmd clean package -B -DgenerateExe=false -DskipTests
