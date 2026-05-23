@@ -130,12 +130,50 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Continue'
-          Write-Host "Building EXE..."
-          java -jar launch4j/launch4j.jar launch4j/config/exe-standalone.xml 2>&1
-          $exitCode = $LASTEXITCODE
-          Write-Host "Launch4j exit code: $exitCode"
-          if (Test-Path 'JMkvpropedit.exe') {
-            Write-Host "EXE created: $(Get-Item 'JMkvpropedit.exe').Length bytes"
+          $root = (Get-Location).Path
+          Write-Host "Workspace: $root"
+          $jarPath = Join-Path $root "target/jmkvpropedit-2.5.0.jar"
+          $exePath = Join-Path $root "JMkvpropedit.exe"
+          $icoPath = Join-Path $root "launch4j/config/java.ico"
+          Write-Host "JAR path: $jarPath"
+          if (Test-Path $jarPath) {
+            Write-Host "JAR exists: $((Get-Item $jarPath).Length) bytes"
+          } else {
+            Write-Host "JAR NOT FOUND at $jarPath"
+            Get-ChildItem -Path (Join-Path $root "target") -Name
+            exit 0
+          }
+          # Create a temp config with absolute paths
+          $configPath = Join-Path $root "launch4j-exe.xml"
+          @"
+          <launch4jConfig>
+            <dontWrapJar>false</dontWrapJar>
+            <headerType>gui</headerType>
+            <jar>$jarPath</jar>
+            <outfile>$exePath</outfile>
+            <errTitle></errTitle>
+            <cmdLine></cmdLine>
+            <chdir></chdir>
+            <priority>normal</priority>
+            <downloadUrl>https://adoptium.net</downloadUrl>
+            <supportUrl></supportUrl>
+            <customProcName>false</customProcName>
+            <stayAlive>false</stayAlive>
+            <manifest></manifest>
+            <icon>$icoPath</icon>
+            <jre>
+              <path>%JAVA_HOME%;%PATH%</path>
+              <minVersion>21</minVersion>
+              <maxVersion></maxVersion>
+            </jre>
+          </launch4jConfig>
+          "@ | Set-Content -Path $configPath -Encoding ASCII
+          Write-Host "Running Launch4j..."
+          java -jar launch4j/launch4j.jar $configPath 2>&1
+          Write-Host "Launch4j exit code: $LASTEXITCODE"
+          Remove-Item $configPath -Force -ErrorAction SilentlyContinue
+          if (Test-Path $exePath) {
+            Write-Host "EXE created: $((Get-Item $exePath).Length) bytes"
           } else {
             Write-Host "EXE NOT FOUND"
           }
