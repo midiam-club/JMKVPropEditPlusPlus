@@ -34,6 +34,7 @@
 		<codesign.alias>codesign</codesign.alias>
 		<codesign.storepass>${env.CODESIGN_STOREPASS}</codesign.storepass>
 		<codesign.keypass>${env.CODESIGN_KEYPASS}</codesign.keypass>
+		<codesign.skip>true</codesign.skip>
 	</properties>
 
 	<dependencies>
@@ -175,6 +176,31 @@
 									</arguments>
 								</configuration>
 							</execution>
+							<execution>
+								<id>sign-exe</id>
+								<phase>package</phase>
+								<goals>
+									<goal>exec</goal>
+								</goals>
+								<configuration>
+									<skip>${codesign.skip}</skip>
+									<executable>${basedir}/launch4j/sign4j/sign4j.exe</executable>
+									<arguments>
+										<argument>java</argument>
+										<argument>-jar</argument>
+										<argument>${basedir}/launch4j/sign4j/jsign-2.0.jar</argument>
+										<argument>--keystore</argument>
+										<argument>${codesign.keystore}</argument>
+										<argument>--alias</argument>
+										<argument>${codesign.alias}</argument>
+										<argument>--storepass</argument>
+										<argument>${codesign.storepass}</argument>
+										<argument>--keypass</argument>
+										<argument>${codesign.keypass}</argument>
+										<argument>${basedir}/JMkvpropedit.exe</argument>
+									</arguments>
+								</configuration>
+							</execution>
 						</executions>
 					</plugin>
 				</plugins>
@@ -253,49 +279,20 @@
 			</build>
 		</profile>
 
-		<!-- Code signing profile: signs the generated EXE using sign4j and jsign -->
+		<!-- Code signing profile: enables signing when keystore is present -->
 		<profile>
 			<id>codesign</id>
 			<activation>
+				<os>
+					<family>windows</family>
+				</os>
 				<file>
 					<exists>build/codesign.jks</exists>
 				</file>
 			</activation>
-			<build>
-				<plugins>
-					<plugin>
-						<groupId>org.codehaus.mojo</groupId>
-						<artifactId>exec-maven-plugin</artifactId>
-						<version>${exec-maven-plugin.version}</version>
-						<executions>
-							<execution>
-								<id>sign-exe</id>
-								<phase>package</phase>
-								<goals>
-									<goal>exec</goal>
-								</goals>
-								<configuration>
-									<executable>${basedir}/launch4j/sign4j/sign4j.exe</executable>
-									<arguments>
-										<argument>java</argument>
-										<argument>-jar</argument>
-										<argument>${basedir}/launch4j/sign4j/jsign-2.0.jar</argument>
-										<argument>--keystore</argument>
-										<argument>${codesign.keystore}</argument>
-										<argument>--alias</argument>
-										<argument>${codesign.alias}</argument>
-										<argument>--storepass</argument>
-										<argument>${codesign.storepass}</argument>
-										<argument>--keypass</argument>
-										<argument>${codesign.keypass}</argument>
-										<argument>${basedir}/JMkvpropedit.exe</argument>
-									</arguments>
-								</configuration>
-							</execution>
-						</executions>
-					</plugin>
-				</plugins>
-			</build>
+			<properties>
+				<codesign.skip>false</codesign.skip>
+			</properties>
 		</profile>
 	</profiles>
 </project>
