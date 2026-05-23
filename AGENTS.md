@@ -11,7 +11,7 @@ JMkvpropedit is a Swing-based GUI for mkvpropedit (MKVToolNix). It is built with
 - **Tool**: Maven 3.9+ (wrapper available: `mvnw` / `mvnw.cmd`)
 - **Java Version**: 21 (source, target, release)
 - **Main Class**: `io.github.brunorex.JMkvpropedit`
-- **Default Artifact**: `target/jmkvpropedit-2.4.0.jar`
+- **Default Artifact**: `target/jmkvpropedit-2.5.0.jar`
 
 ### Key Commands
 
@@ -19,10 +19,10 @@ JMkvpropedit is a Swing-based GUI for mkvpropedit (MKVToolNix). It is built with
 # Compile & run tests
 ./mvnw test
 
-# Build portable JAR
-./mvnw clean package
+# Build portable JAR only
+./mvnw clean package -DgenerateExe=false
 
-# Build JAR + Windows EXE (auto-activated on Windows)
+# Build JAR + Windows EXE (default on Windows, or explicit)
 mvnw.cmd clean package
 
 # Quality gate (JaCoCo + SpotBugs + OWASP)
@@ -31,13 +31,13 @@ mvnw.cmd clean package
 
 ## Architecture
 
-The codebase follows a **conservative refactoring** approach: we extract services from the monolithic `JMkvpropedit.java` class without imposing a full MVC framework.
+The codebase follows a **conservative refactoring** approach: we extract services and UI panels from the monolithic `JMkvpropedit.java` class without imposing a full MVC framework.
 
 ### Package Structure
 
 ```
 io.github.brunorex
-├── JMkvpropedit.java          # Main Swing UI (~5300 lines, monolithic but shrinking)
+├── JMkvpropedit.java          # Main Swing UI (~693 lines, down from ~5300)
 ├── BatchExecutorService.java  # Parallel mkvpropedit execution
 ├── IniPersistenceService.java # INI file read/write (wraps ini4j)
 ├── MkvToolsDownloader.java    # MKVToolNix download + ZIP extraction
@@ -46,6 +46,11 @@ io.github.brunorex
 ├── LanguageManager.java       # i18n (properties-based)
 ├── Utils.java                 # OS detection & string utilities
 ├── FileDrop.java              # Drag-and-drop support
+├── InputTabPanel.java         # Input file list, drag-and-drop, add/remove buttons
+├── GeneralTabPanel.java       # Title, chapters, tags, extra command-line options
+├── OptionsTabPanel.java       # Executable path, language, theme selection
+├── TrackTabPanel.java         # Track-specific editing (video/audio/subtitles)
+├── AttachmentsTabPanel.java   # Attachment management
 ├── profiles/
 │   ├── ProfileManager.java
 │   └── TrackProfile.java
@@ -78,10 +83,14 @@ io.github.brunorex
 
 | File | Purpose |
 |------|---------|
-| `pom.xml` | Build config, dependencies, profiles (`windows-exe`, `codesign`, `quality`) |
+| `pom.xml` | Build config, dependencies, profiles (`windows-exe`, `quality`) |
 | `launch4j/config/exe-standalone.xml` | Launch4j config for the EXE wrapper |
-| `build/codesign.jks` | Code signing keystore (auto-ignored by `.gitignore`) |
 | `src/main/resources/io/github/brunorex/resources/messages*.properties` | i18n strings |
+| `InputTabPanel.java` | Input file list, drag-and-drop, add/remove buttons |
+| `GeneralTabPanel.java` | Title, chapters, tags, extra command-line options |
+| `OptionsTabPanel.java` | Executable path, language, theme selection |
+| `TrackTabPanel.java` | Track-specific editing (video/audio/subtitles) |
+| `AttachmentsTabPanel.java` | Attachment management |
 
 ## Known Constraints
 
@@ -111,9 +120,15 @@ The workflow `.github/workflows/build.yml` runs on every push/PR and on tags `v*
 
 | Job | Trigger | Platforms | Notes |
 |---|---|---|---|
-| `build` | push, PR | ubuntu, windows, macos | Builds JAR (+ EXE on Windows), uploads artifacts |
+| `build` | push, PR | ubuntu, windows, macos | Builds JAR (+ EXE on Windows when `-DgenerateExe=true`), uploads artifacts |
 | `quality` | push, PR | ubuntu | Runs JaCoCo, SpotBugs, OWASP |
 | `release` | tag `v*` | windows | Creates GitHub Release with JAR + EXE assets |
+
+### EXE generation
+
+The `windows-exe` Maven profile auto-activates on Windows only when `-DgenerateExe=true` (the default). CI:
+- **Build job**: passes `-DgenerateExe=false` to skip EXE creation (prevents CI-specific Launch4j failures).
+- **Release job**: builds EXE via a PowerShell step with absolute paths; failure is non-fatal (JAR-only release still succeeds).
 
 ### Code-signing secrets
 
@@ -148,3 +163,4 @@ The CI workflow decodes `CODESIGN_JKS_B64` into `build/codesign.jks` at build ti
   # Force headless=false explicitly
   JAVA_TOOL_OPTIONS="-Djava.awt.headless=false" ./mvnw test
   ```
+- Integration tests navigate extracted panels via reflection (`getInputTabPanel()` helper) rather than accessing `JMkvpropedit` fields directly.
