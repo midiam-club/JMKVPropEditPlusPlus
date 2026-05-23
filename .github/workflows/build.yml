@@ -111,6 +111,9 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      CODESIGN_STOREPASS: ${{ secrets.CODESIGN_STOREPASS }}
+      CODESIGN_KEYPASS: ${{ secrets.CODESIGN_KEYPASS }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -122,6 +125,13 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
+      - name: Decode keystore
+        if: ${{ secrets.CODESIGN_JKS_B64 != '' }}
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          [System.IO.File]::WriteAllBytes("build/codesign.jks", [Convert]::FromBase64String("${{ secrets.CODESIGN_JKS_B64 }}"))
+
       - name: Build JAR
         run: ./mvnw.cmd clean package -B -DgenerateExe=false -DskipTests
 
@@ -131,8 +141,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Continue'
           $root = (Get-Location).Path
-          Write-Host "Workspace: $root"
-          $jarPath = Join-Path $root "target/jmkvpropedit-2.5.0.jar"
+          $jarPath = Get-ChildItem -Path (Join-Path $root "target") -Filter "jmkvpropedit-*.jar" | Select-Object -First 1 | ForEach-Object { $_.FullName }
           $exePath = Join-Path $root "JMkvpropedit.exe"
           $icoPath = Join-Path $root "launch4j/config/java.ico"
           Write-Host "JAR path: $jarPath"
@@ -174,19 +183,31 @@ jobs:
           Remove-Item $configPath -Force -ErrorAction SilentlyContinue
           if (Test-Path $exePath) {
             Write-Host "EXE created: $((Get-Item $exePath).Length) bytes"
+            if (Test-Path "build/codesign.jks") {
+              Write-Host "Signing EXE with sign4j and jsign..."
+              $sign4j = Join-Path $root "launch4j/sign4j/sign4j.exe"
+              $jsign = Join-Path $root "launch4j/sign4j/jsign-2.0.jar"
+              $keystore = Join-Path $root "build/codesign.jks"
+              & $sign4j java -jar $jsign --keystore $keystore --alias codesign --storepass "$env:CODESIGN_STOREPASS" --keypass "$env:CODESIGN_KEYPASS" $exePath
+              Write-Host "Signing exit code: $LASTEXITCODE"
+            } else {
+              Write-Host "No keystore found, skipping signing."
+            }
           } else {
             Write-Host "EXE NOT FOUND"
           }
           exit 0
 
       - name: Ensure JAR exists for release
-        run: if (-not (Test-Path 'target/jmkvpropedit-2.5.0.jar')) { throw 'JAR not found' }
+        run: |
+          $jar = Get-ChildItem 'target/jmkvpropedit-*.jar' | Select-Object -First 1
+          if (-not $jar) { throw 'JAR not found' }
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            target/jmkvpropedit-2.5.0.jar
+            target/jmkvpropedit-*.jar
             JMkvpropedit.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

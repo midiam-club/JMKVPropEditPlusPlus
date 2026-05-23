@@ -93,7 +93,7 @@ class JMkvpropeditIntegrationTest {
         JFrame frame = (JFrame) readField(app, "frmJMkvpropedit");
         assertNotNull(frame);
         assertTrue(frame.getTitle().contains("JMKVPropedit++"));
-        assertTrue(frame.getTitle().contains("v2.5.0"));
+        assertTrue(frame.getTitle().contains("v2.5.1"));
 
         IniPersistenceService iniService = (IniPersistenceService) readField(app, "iniService");
         assertNotNull(iniService);

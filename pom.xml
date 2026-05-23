@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.github.brunorex</groupId>
 	<artifactId>jmkvpropedit</artifactId>
-    <version>2.5.0</version>
+    <version>2.5.1</version>
 	<name>JMkvpropedit</name>
 	<description>A Java GUI for mkvpropedit</description>
 
@@ -26,11 +26,14 @@
 		<dependency-check.version>12.1.2</dependency-check.version>
 
 		<!--
-		  Code signing is done via signtool.exe in CI (see .github/workflows/build.yml).
-		  Local builds are unsigned by default.
+		  Code signing is done via sign4j and jsign.
+		  Local builds will sign the EXE if build/codesign.jks exists.
 		-->
 		<generateExe>true</generateExe>
-	
+		<codesign.keystore>${basedir}/build/codesign.jks</codesign.keystore>
+		<codesign.alias>codesign</codesign.alias>
+		<codesign.storepass>${env.CODESIGN_STOREPASS}</codesign.storepass>
+		<codesign.keypass>${env.CODESIGN_KEYPASS}</codesign.keypass>
 	</properties>
 
 	<dependencies>
@@ -243,6 +246,51 @@
 								<goals>
 									<goal>check</goal>
 								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+
+		<!-- Code signing profile: signs the generated EXE using sign4j and jsign -->
+		<profile>
+			<id>codesign</id>
+			<activation>
+				<file>
+					<exists>build/codesign.jks</exists>
+				</file>
+			</activation>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.codehaus.mojo</groupId>
+						<artifactId>exec-maven-plugin</artifactId>
+						<version>${exec-maven-plugin.version}</version>
+						<executions>
+							<execution>
+								<id>sign-exe</id>
+								<phase>package</phase>
+								<goals>
+									<goal>exec</goal>
+								</goals>
+								<configuration>
+									<executable>${basedir}/launch4j/sign4j/sign4j.exe</executable>
+									<arguments>
+										<argument>java</argument>
+										<argument>-jar</argument>
+										<argument>${basedir}/launch4j/sign4j/jsign-2.0.jar</argument>
+										<argument>--keystore</argument>
+										<argument>${codesign.keystore}</argument>
+										<argument>--alias</argument>
+										<argument>${codesign.alias}</argument>
+										<argument>--storepass</argument>
+										<argument>${codesign.storepass}</argument>
+										<argument>--keypass</argument>
+										<argument>${codesign.keypass}</argument>
+										<argument>${basedir}/JMkvpropedit.exe</argument>
+									</arguments>
+								</configuration>
 							</execution>
 						</executions>
 					</plugin>

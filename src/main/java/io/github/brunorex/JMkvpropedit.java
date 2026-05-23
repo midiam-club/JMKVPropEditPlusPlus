@@ -71,7 +71,7 @@ import org.ini4j.Ini;
 
 public class JMkvpropedit {
 
-    private static final String VERSION_NUMBER = "v2.5.0";
+    private static final String VERSION_NUMBER = "v2.5.1";
     private static final int MAX_STREAMS = 200;
     private static final Logger LOGGER = LoggerFactory.getLogger(JMkvpropedit.class);
     private static String[] argsArray;
