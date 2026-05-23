@@ -122,9 +122,24 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Build release artifacts (EXE failure non-fatal)
+      - name: Build JAR
+        run: ./mvnw.cmd clean package -B -DgenerateExe=false -DskipTests
+
+      - name: Build EXE (debug)
         continue-on-error: true
-        run: ./mvnw.cmd clean package -B -DgenerateExe=true -DskipTests
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Continue'
+          Write-Host "Building EXE..."
+          java -jar launch4j/launch4j.jar launch4j/config/exe-standalone.xml 2>&1
+          $exitCode = $LASTEXITCODE
+          Write-Host "Launch4j exit code: $exitCode"
+          if (Test-Path 'JMkvpropedit.exe') {
+            Write-Host "EXE created: $(Get-Item 'JMkvpropedit.exe').Length bytes"
+          } else {
+            Write-Host "EXE NOT FOUND"
+          }
+          exit 0
 
       - name: Ensure JAR exists for release
         run: if (-not (Test-Path 'target/jmkvpropedit-2.5.0.jar')) { throw 'JAR not found' }
