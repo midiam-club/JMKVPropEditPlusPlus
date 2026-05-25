@@ -71,7 +71,7 @@ import org.ini4j.Ini;
 
 public class JMkvpropedit {
 
-    private static final String VERSION_NUMBER = "v2.5.1";
+    private static final String VERSION_NUMBER = "v2.5.2";
     private static final int MAX_STREAMS = 200;
     private static final Logger LOGGER = LoggerFactory.getLogger(JMkvpropedit.class);
     private static String[] argsArray;
@@ -203,6 +203,12 @@ public class JMkvpropedit {
      */
     private void initialize() {
         loadLanguage();
+        org.ini4j.Ini ini = iniService.readOrCreateIni();
+        if (ini != null) {
+            profileManager = new ProfileManager(ini);
+        } else {
+            profileManager = null;
+        }
         frmJMkvpropedit = new JFrame();
         frmJMkvpropedit.setTitle("JMKVPropedit++ " + VERSION_NUMBER);
         frmJMkvpropedit.setBounds(100, 100, 760, 500);
@@ -571,8 +577,6 @@ public class JMkvpropedit {
         org.ini4j.Ini ini = iniService.readOrCreateIni();
 
         if (ini != null) {
-            profileManager = new ProfileManager(ini);
-
             String exePath = iniService.getExecutablePath(ini);
 
             if (exePath.equals("mkvpropedit")) {
@@ -584,8 +588,6 @@ public class JMkvpropedit {
                 optionsTabPanel.setDefaultExecutable(false);
                 optionsTabPanel.setDefaultExecutableEnabled(true);
             }
-        } else {
-            profileManager = null;
         }
 
         loadProfilesToModel();
