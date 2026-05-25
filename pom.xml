@@ -61,7 +61,7 @@
 		<dependency>
 			<groupId>com.formdev</groupId>
 			<artifactId>flatlaf</artifactId>
-			<version>3.5.4</version>
+			<version>3.7.1</version>
 		</dependency>
 
 		<!-- Logging: SLF4J API + Logback -->
